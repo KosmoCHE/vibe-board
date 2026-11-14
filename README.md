@@ -1,4 +1,4 @@
-# iterm-vibe-board
+# vibe-board
 
 A human-first progress board that lives in the iTerm2 toolbelt and in Paseo's
 sidebar, shared by you and every AI coding agent you run.
@@ -89,7 +89,7 @@ items are yours, agents are just the ones pushing them.
 ## Try it
 
 ```sh
-git clone https://github.com/KosmoCHE/iterm-vibe-board && cd iterm-vibe-board
+git clone https://github.com/KosmoCHE/vibe-board && cd vibe-board
 ./install.sh
 ```
 

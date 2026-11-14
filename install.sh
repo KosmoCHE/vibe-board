@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs iterm-vibe-board for the current user, from this clone:
+# Installs vibe-board for the current user, from this clone:
 #
 #   ~/.iterm-vibe-board/bin/vibeboard              launcher for the CLI (hooks and agents call it)
 #   ~/.claude/skills/vibeboard                  -> adapters/claude-code/skills/vibeboard
@@ -121,7 +121,7 @@ EOF
     if grep -qF "$DATA/bin" "$HOME/.zshrc" 2>/dev/null; then
       echo "~/.zshrc already puts $DATA/bin on PATH; open a new shell for \`vibeboard\` to work."
     elif [ "$(basename "${SHELL:-}")" = zsh ]; then
-      printf '\n# iterm-vibe-board\n%s\n' "$line" >> "$HOME/.zshrc"
+      printf '\n# vibe-board\n%s\n' "$line" >> "$HOME/.zshrc"
       echo "Added $DATA/bin to PATH in ~/.zshrc; open a new shell for \`vibeboard\` to work."
     else
       echo "Put \`vibeboard\` on your PATH: $line"

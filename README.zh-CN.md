@@ -1,4 +1,4 @@
-# iterm-vibe-board
+# vibe-board
 
 住在 iTerm2 侧栏和 Paseo 侧栏里的进度看板，以人为中心，你和你跑着的每个 AI coding agent 一起维护。
 
@@ -70,7 +70,7 @@ agent 那一侧的任务清单（Claude Code 自带的 `TaskCreate`，以及大�
 ## 试一下
 
 ```sh
-git clone https://github.com/KosmoCHE/iterm-vibe-board && cd iterm-vibe-board
+git clone https://github.com/KosmoCHE/vibe-board && cd vibe-board
 ./install.sh
 ```
 
