@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs vibe-board for the current user, from this clone:
 #
-#   ~/.iterm-vibe-board/bin/vibeboard              launcher for the CLI (hooks and agents call it)
+#   ~/.vibe-board/bin/vibeboard                    launcher for the CLI (hooks and agents call it)
 #   ~/.claude/skills/vibeboard                  -> adapters/claude-code/skills/vibeboard
 #   ~/.claude/settings.json                        SessionStart and SessionEnd hooks added
 #   iTerm2's active AppSupport/Scripts/AutoLaunch/vibeboard_panel.py -> iterm/vibeboard_panel.py
@@ -20,7 +20,7 @@ iterm_support() {
 }
 
 ROOT=$(cd "$(dirname "$0")" && pwd -P)
-DATA=${VIBEBOARD_HOME:-$HOME/.iterm-vibe-board}
+DATA=${VIBEBOARD_HOME:-$HOME/.vibe-board}
 BIN=$DATA/bin/vibeboard
 SKILL=$HOME/.claude/skills/vibeboard
 SETTINGS=$HOME/.claude/settings.json

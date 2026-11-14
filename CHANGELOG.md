@@ -26,8 +26,11 @@ follows [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - The repository is now `KosmoCHE/vibe-board`, since the board runs in Paseo
-  as well as iTerm2; the old address redirects. The data directory stays
-  `~/.iterm-vibe-board`.
+  as well as iTerm2; the old address redirects.
+- The data directory is now `~/.vibe-board`. To keep an existing board, move
+  it before any new agent session starts, then reinstall:
+  `launchctl bootout gui/$(id -u)/com.github.kosmoche.vibeboard.server`,
+  `mv ~/.iterm-vibe-board ~/.vibe-board`, `./install.sh`.
 
 - The panel is rewritten as one React Native front end shared by iTerm2 (through
   React Native Web) and Paseo. It reaches its host only through a small `Host`

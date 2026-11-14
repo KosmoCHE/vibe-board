@@ -1,6 +1,6 @@
 """On-disk store: one JSON file per item, one directory per project.
 
-Layout under VIBEBOARD_HOME (default ~/.iterm-vibe-board):
+Layout under VIBEBOARD_HOME (default ~/.vibe-board):
 
     projects/<key>/project.json       the project's real path
     projects/<key>/items/<id>.json    live items
@@ -64,7 +64,7 @@ _HEX = re.compile(r"^[0-9a-f]+$")
 
 
 def home() -> Path:
-    return Path(os.environ.get("VIBEBOARD_HOME") or Path.home() / ".iterm-vibe-board")
+    return Path(os.environ.get("VIBEBOARD_HOME") or Path.home() / ".vibe-board")
 
 
 def _iso(moment: datetime) -> str:

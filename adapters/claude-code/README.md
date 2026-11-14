@@ -24,7 +24,7 @@ while a detached diagnostic session cannot take over the pane it inherited.
 
 `./install.sh` at the top of the clone links the skill into `~/.claude/skills/`
 and adds the two hooks to `~/.claude/settings.json`, pointing at the launcher
-in `~/.iterm-vibe-board/bin/`. By hand, it is the same two steps:
+in `~/.vibe-board/bin/`. By hand, it is the same two steps:
 
 ```sh
 ln -s "$PWD/adapters/claude-code/skills/vibeboard" ~/.claude/skills/vibeboard

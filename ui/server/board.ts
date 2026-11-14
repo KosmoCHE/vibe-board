@@ -8,7 +8,7 @@ import type { boardRpc } from "../shared/rpc";
 // The board server that install.sh keeps running: vibeboard.server.DEFAULT_PORT, and the
 // token it stores in its data directory.
 const SERVER = "http://127.0.0.1:47431";
-const HOME = process.env.VIBEBOARD_HOME || join(homedir(), ".iterm-vibe-board");
+const HOME = process.env.VIBEBOARD_HOME || join(homedir(), ".vibe-board");
 
 export async function request({ method, path, body }: RpcInput<typeof boardRpc>) {
   const token = (await readFile(join(HOME, "token"), "utf8")).trim();

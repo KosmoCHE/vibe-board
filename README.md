@@ -93,7 +93,7 @@ git clone https://github.com/KosmoCHE/vibe-board && cd vibe-board
 ./install.sh
 ```
 
-This puts the `vibeboard` launcher in `~/.iterm-vibe-board/bin/` (and on your
+This puts the `vibeboard` launcher in `~/.vibe-board/bin/` (and on your
 PATH), links the Claude Code skill and hooks, and registers the panel as an
 iTerm2 AutoLaunch script. Then enable it under View › Toolbelt › Vibe Board.
 Rerun after `git pull`; `./install.sh --uninstall` takes it all out again.
@@ -108,7 +108,7 @@ Turn on Settings › Plugins › Enable plugins, then open a workspace's Explore
 sidebar and add Vibe Board from its `+`. The plugin reads the same local server,
 so run `./install.sh` first.
 
-Data lives in `~/.iterm-vibe-board/`: one JSON file per item under
+Data lives in `~/.vibe-board/`: one JSON file per item under
 `projects/<key>/items/`, plus a small map from panes to sessions. Set
 `VIBEBOARD_HOME` to use another directory.
 

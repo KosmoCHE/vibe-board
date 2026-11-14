@@ -11,8 +11,8 @@
 安装器会用当前用户的 macOS LaunchAgent 托管本地数据服务。它仅监听
 `127.0.0.1:47431`，不依赖 Codex 会话或 iTerm Python API 连接的寿命；服务异常退出后
 由 launchd 自动重启，继续使用原端口和认证 token。iTerm AutoLaunch 脚本负责注册侧栏
-和同步当前窗格，任务数据仍保存在 `~/.iterm-vibe-board/`。
-服务使用 `~/.iterm-vibe-board/runtime/` 下按内容版本保存的运行文件，避免后台进程
+和同步当前窗格，任务数据仍保存在 `~/.vibe-board/`。
+服务使用 `~/.vibe-board/runtime/` 下按内容版本保存的运行文件，避免后台进程
 受 `Documents` 目录访问限制影响；`runtime/current` 指向已通过健康检查的版本。
 每个版本的 `source.json` 记录来源目录和内容摘要，不包含凭证。
 升级启动或健康检查失败时，会恢复旧配置与原运行状态；旧服务通过健康检查后才报告
@@ -32,7 +32,7 @@ python3 -m vibeboard.service
 若提示端口占用，先在 iTerm2 的 Scripts 控制台停止旧的 `vibeboard_panel.py`，再执行。
 安装器不会杀死占用端口的未知进程。随后重新运行新版 AutoLaunch 脚本，以恢复窗格跟随。
 LaunchAgent 位于 `~/Library/LaunchAgents/com.github.kosmoche.vibeboard.server.plist`，
-故障日志在 `~/.iterm-vibe-board/server.log`。单独卸载服务用
+故障日志在 `~/.vibe-board/server.log`。单独卸载服务用
 `python3 -m vibeboard.service --uninstall`；完整卸载也会移除它，保留任务数据。
 
 ## 为什么
@@ -74,7 +74,7 @@ git clone https://github.com/KosmoCHE/vibe-board && cd vibe-board
 ./install.sh
 ```
 
-它把 `vibeboard` 启动器放进 `~/.iterm-vibe-board/bin/`（并加进 PATH），链接 Claude Code 的 skill 和 hook，把面板注册为 iTerm2 的 AutoLaunch 脚本。然后在 View › Toolbelt › Vibe Board 打开它。`git pull` 之后重跑一次；`./install.sh --uninstall` 全部撤掉。
+它把 `vibeboard` 启动器放进 `~/.vibe-board/bin/`（并加进 PATH），链接 Claude Code 的 skill 和 hook，把面板注册为 iTerm2 的 AutoLaunch 脚本。然后在 View › Toolbelt › Vibe Board 打开它。`git pull` 之后重跑一次；`./install.sh --uninstall` 全部撤掉。
 
 ### 在 Paseo 里
 
@@ -84,7 +84,7 @@ paseo plugin install "$PWD/ui"
 
 打开 Settings › Plugins › Enable plugins，然后打开工作区的 Explorer 侧栏，在它的 `+` 里加上 Vibe Board。插件读的是同一个本地服务，所以先跑 `./install.sh`。
 
-数据在 `~/.iterm-vibe-board/`：每件事一个 JSON 文件，放在 `projects/<key>/items/` 下，另有一张 pane 到会话的小表。设 `VIBEBOARD_HOME` 可以换目录。
+数据在 `~/.vibe-board/`：每件事一个 JSON 文件，放在 `projects/<key>/items/` 下，另有一张 pane 到会话的小表。设 `VIBEBOARD_HOME` 可以换目录。
 
 ## 要求
 
