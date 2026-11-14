@@ -12,6 +12,8 @@ follows [Semantic Versioning](https://semver.org/).
   (`paseo plugin install <clone>/ui`). Paseo agents are recognised as panes
   through `PASEO_AGENT_ID`: their sessions are attributed, named and shown as
   live, and Project and Session cover the agents of the panel's workspace.
+  There Session is called Workspace, and pressing one agent's name at its top
+  shows only what that agent pushes.
 - Finished tasks are archived with their steps once they have been done for a
   set number of days (7 by default), so the board stops re-reading them on
   every change. The settings dialog behind the gear in the panel sets the

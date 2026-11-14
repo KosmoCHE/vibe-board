@@ -168,7 +168,7 @@ function Dependency({ dep }: { dep: Item }) {
 // The steps of the selected task and what it waits for.
 function Links({ item }: { item: Item }) {
   const { c, m, ui, set, select } = useBoard();
-  const { done, active } = m.levelItems(m.scopeItems(ui.tab, ui.filter).filter((i) => i.parent === item.id));
+  const { done, active } = m.levelItems(m.scopeItems(ui).filter((i) => i.parent === item.id));
   const key = doneStepsKey(ui, item);
   const open = Boolean(ui.showDone[key]);
   const parent = item.parent ? m.byId[item.parent] : null;

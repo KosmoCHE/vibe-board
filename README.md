@@ -35,7 +35,9 @@ items are yours, agents are just the ones pushing them.
   - **Session** – the items the focused pane's session is pushing.
 
   Project and Session are bound to the pane you click into, like iTerm2's
-  Notes. In Paseo they cover the agents of the workspace the panel is in.
+  Notes. In Paseo they cover the agents of the workspace the panel is in, and
+  Session is called Workspace; press one agent's name at its top to show only
+  what that agent pushes.
 - **One list that shows what waits for what**, drawn the way a git graph draws
   history. One line per item, prerequisites above what waits for them, a dot
   per item and a lane per dependency: lanes split where several items wait for

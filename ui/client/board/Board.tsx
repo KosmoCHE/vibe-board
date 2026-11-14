@@ -28,6 +28,7 @@ export function Board({ host }: { host: Host }) {
     ...host.prefs,
     showDone: {},
     filter: "",
+    only: null,
     selected: null,
     editing: false,
     adding: false,
@@ -193,7 +194,7 @@ export function Board({ host }: { host: Host }) {
   // unfold what hides it, then select it.
   function jumpTo(item: Item) {
     set((now) => {
-      const seen = m!.scopeItems(now.tab, now.filter).some((i) => i.id === item.id);
+      const seen = m!.scopeItems(now).some((i) => i.id === item.id);
       const next: Ui = seen ? now : { ...now, tab: "global", filter: "" };
       return { ...next, ...reveal(next, m!, item, true), selected: item.id, editing: false };
     });
@@ -238,9 +239,10 @@ export function Board({ host }: { host: Host }) {
 
   // What the remembered state points at may be gone.
   const filter = filters.some((o) => o.value === ui.filter) ? ui.filter : "";
-  const items = m.scopeItems(ui.tab, filter);
+  const only = ui.only && m.focus.sessions.includes(ui.only) ? ui.only : null;
+  const items = m.scopeItems({ tab: ui.tab, filter, only });
   const selected = items.some((i) => i.id === ui.selected) ? ui.selected : null;
-  const shown: Ui = { ...ui, filter, selected, editing: Boolean(selected) && ui.editing };
+  const shown: Ui = { ...ui, filter, only, selected, editing: Boolean(selected) && ui.editing };
   const scale = (board.settings?.text_size ?? 100) / 100; // a server from before the setting does not report it
   const scaled = (n: number) => Math.round(n * scale);
   const ctx: Ctx = { host, c, m, ui: shown, scaled, set, patch, remove, select, jumpTo, jumpToDriver, copyTitle, openMenu };
@@ -309,7 +311,7 @@ function filterOptions(m: Model): Option[] {
 }
 
 function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
-  const { c, m, ui, set } = useBoard();
+  const { host, c, m, ui, set } = useBoard();
   const f = m.focus;
   return (
     <View style={{ paddingTop: 6, paddingHorizontal: 8, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: c.border }}>
@@ -324,7 +326,7 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
               style={{ flex: 1, alignItems: "center", paddingVertical: 2, borderRadius: 5, backgroundColor: ui.tab === tab ? c.surface0 : undefined }}
             >
               <T size={12} weight="500" color={ui.tab === tab ? c.foreground : c.foregroundMuted}>
-                {label}
+                {tab === "session" ? (host.sessionTab ?? label) : label}
               </T>
             </Pressable>
           ))}
@@ -355,9 +357,10 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
             {f.projects.length ? f.projects.map(projectPath).join(", ") : "no project here"}
           </T>
         )}
-        {ui.tab === "session" && (
+        {ui.tab === "session" && f.sessions.length > 1 && <SessionChips />}
+        {ui.tab === "session" && f.sessions.length <= 1 && (
           <T size={12} lines={1} color={c.foregroundMuted}>
-            {f.sessions.length ? f.sessions.map((s) => "@" + m.whoName(s)).join(", ") : "no session here"}
+            {f.sessions.length ? "@" + m.whoName(f.sessions[0]) : "no session here"}
           </T>
         )}
       </View>
@@ -405,6 +408,33 @@ function MenuItem({ label, height, onPress }: { label: string; height: number; o
       {hovered && <Tint color={c.accent} opacity={0.2} />}
       <T lines={1}>{label}</T>
     </Pressable>
+  );
+}
+
+/** The sessions beside the board, each a press away from being the only one shown. */
+function SessionChips() {
+  const { c, m, ui, set } = useBoard();
+  return (
+    <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+      {m.focus.sessions.map((s) => {
+        const on = ui.only === s;
+        return (
+          <Pressable
+            key={s}
+            accessibilityRole="button"
+            accessibilityLabel={on ? "Show every session" : `Show only @${m.whoName(s)}`}
+            accessibilityState={{ selected: on }}
+            onPress={() => set((now) => ({ only: now.only === s ? null : s }))}
+            style={{ borderRadius: 4, paddingVertical: 1, paddingHorizontal: 5, borderWidth: 1, borderColor: on ? c.accent : c.border }}
+          >
+            {on && <Tint color={c.accent} opacity={0.2} radius={4} />}
+            <T lines={1} color={on ? c.foreground : c.foregroundMuted}>
+              {"@" + m.whoName(s)}
+            </T>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 

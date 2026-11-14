@@ -13,6 +13,7 @@ export interface Ui {
   open: Record<string, boolean>;
   showDone: Record<string, boolean>; // "root:scope" or doneStepsKey(): that level's done items are unfolded
   filter: string; // Global only: "" | "project:<path>" | "who:<session>"
+  only: string | null; // Session only: the one session it is narrowed to
   selected: string | null; // shown in the inspector
   editing: boolean; // the inspector shows controls instead of text
   adding: boolean; // the add form is open

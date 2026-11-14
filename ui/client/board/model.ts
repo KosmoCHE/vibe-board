@@ -87,7 +87,8 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
     projects: [...new Set([...(host.project ? [host.project] : []), ...here.map((p) => p.project!)])],
   };
 
-  function scopeItems(tab: Tab, filter: string): Item[] {
+  /** What a tab shows: Global narrowed by its filter, Session by the one session it is set to. */
+  function scopeItems({ tab, filter, only }: { tab: Tab; filter: string; only: string | null }): Item[] {
     const all = board.items;
     if (tab === "global") {
       const [kind, value] = filter.split(/:(.*)/s);
@@ -96,7 +97,8 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
       return all;
     }
     if (tab === "project") return all.filter((i) => focus.projects.some((p) => within(i.project, p)));
-    return all.filter((i) => i.driver !== null && focus.sessions.includes(i.driver));
+    const sessions = only ? [only] : focus.sessions;
+    return all.filter((i) => i.driver !== null && sessions.includes(i.driver));
   }
 
   function paneOf(who: string): Pane | null {

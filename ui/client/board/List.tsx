@@ -66,7 +66,7 @@ export function lasting(open: Ui["open"], m: Model): Ui["open"] {
 
 /** The folds to open so that an item shows. `openTask` also unfolds a task's own steps. */
 export function reveal(ui: Ui, m: Model, item: Item, openTask: boolean): Partial<Ui> {
-  const task = m.scopeItems(ui.tab, ui.filter).find((i) => i.id === item.parent) || item;
+  const task = m.scopeItems(ui).find((i) => i.id === item.parent) || item;
   const scope = scopeKey(ui, m);
   const out: Partial<Ui> = {};
   const steps = stepsKey(scope, task);
@@ -358,7 +358,8 @@ function Empty() {
         : "No items yet. Start a session in a project, then add items here.";
     }
   } else if (ui.tab === "project") text = m.focus.projects.length ? "Nothing in this project yet." : "No session is running here.";
-  else text = m.focus.sessions.length ? "This session pushes nothing yet." : "No session is running here.";
+  else if (!m.focus.sessions.length) text = "No session is running here.";
+  else text = m.focus.sessions.length > 1 && !ui.only ? "The sessions here push nothing yet." : "This session pushes nothing yet.";
   return (
     <T size={12} color={c.foregroundMuted} style={{ marginVertical: 12, marginHorizontal: 14 }}>
       {text}
@@ -438,7 +439,7 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
   const height = scaled(step ? ROW : TASK);
   // Who pushes it. A Session tab of one session already says (in Paseo it holds every agent of
   // the workspace), and a step its task's driver pushes adds nothing.
-  const said = (ui.tab === "session" && m.focus.sessions.length === 1) || (item.parent && m.byId[item.parent]?.driver === item.driver);
+  const said = (ui.tab === "session" && (ui.only !== null || m.focus.sessions.length === 1)) || (item.parent && m.byId[item.parent]?.driver === item.driver);
   const driven = Boolean(item.driver) && !done && !said;
   return (
     <Pressable

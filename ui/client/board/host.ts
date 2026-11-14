@@ -110,6 +110,8 @@ export interface Host {
    * Absent: the one pane the server reports as focused.
    */
   beside?(pane: Pane): boolean;
+  /** What the Session tab is called. Paseo's holds every agent of the workspace. Absent: "Session". */
+  sessionTab?: string;
   /** The directory the board itself sits in, when the host has one: Project shows it before any session runs there. */
   project?: string;
   /** Bring the user to a live pane. */
