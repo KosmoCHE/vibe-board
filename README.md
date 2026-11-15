@@ -28,7 +28,8 @@ items are yours, agents are just the ones pushing them.
 
 - **One panel, three tabs** in the iTerm2 toolbelt (View › Toolbelt › Vibe Board)
   and in the sidebar of each Paseo workspace:
-  - **Global** – everything. A select narrows it to one project or one session.
+  - **Global** – everything, grouped by project under each project's name. A
+    select narrows it to one project or one session.
   - **Project** – the items of the project the focused pane's session was
     started in (a Claude Code launch directory), including those filed under
     its sub-directories, and what that session pushes wherever it is filed.

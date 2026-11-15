@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import type { ViewStyle } from "react-native";
 import type { Item } from "./host";
-import { graphFlows, graphLayers, scopedChildren } from "./model";
+import { graphFlows, graphLayers, projectPath, scopedChildren } from "./model";
 import type { Model } from "./model";
 import { Complete, doneStepsKey, DriverChip, Icon, Link, onRightClick, T, Tint, useBoard, useItemPress } from "./parts";
 import type { Ui } from "./parts";
@@ -25,8 +25,9 @@ interface Fold {
 }
 interface Row {
   key: string;
-  item?: Item; // absent on a fold row
+  item?: Item; // absent on a fold row and a heading
   fold?: Fold;
+  heading?: string; // Global: the project of the tasks below
   parent?: string; // on a step, and on the fold of a task's done steps: the task's row
   steps?: { key: string; done: number; total: number; open: boolean }; // a task that has steps; key in Ui.open
   outside?: boolean; // waits for something the current scope does not show
@@ -105,30 +106,36 @@ function plan(items: Item[], ui: Ui, m: Model) {
   }
   let anyOpen = false;
   // Tasks that depend on each other stay together, each below what it waits for.
-  for (const { layers, unresolved } of graphFlows(tasks, taskDeps)) {
-    for (const task of [...layers.flat(), ...unresolved]) {
-      const steps = kids[task.id] || [];
-      const key = stepsKey(scope, task);
-      const open = steps.length > 0 && ui.open[key] !== false; // rows are small: open until folded
-      anyOpen = anyOpen || open;
-      shownAt.set(task.id, "n:" + task.id);
-      rows.push({
-        key: "n:" + task.id,
-        item: task,
-        steps: steps.length ? { key, done: steps.filter((s) => s.status === "done").length, total: steps.length, open } : undefined,
-      });
-      if (!open) continue;
-      const inside = m.levelItems(steps);
-      const doneFold = doneStepsKey(ui, task);
-      const foldOpen = Boolean(ui.showDone[doneFold]);
-      if (inside.done.length) {
-        rows.push({ key: "f:" + task.id, fold: { key: doneFold, count: inside.done.length, open: foldOpen }, parent: "n:" + task.id });
-        if (!foldOpen) for (const step of inside.done) shownAt.set(step.id, "f:" + task.id);
-      }
-      for (const step of foldOpen ? [...inside.done, ...inside.active] : inside.active) {
-        shownAt.set(step.id, "n:" + step.id);
-        rows.push({ key: "n:" + step.id, item: step, parent: "n:" + task.id });
-      }
+  const ordered = graphFlows(tasks, taskDeps).flatMap(({ layers, unresolved }) => [...layers.flat(), ...unresolved]);
+  // Global names each project once, above its tasks, instead of on every task.
+  const grouped = ui.tab === "global";
+  let heading: string | null = null;
+  for (const task of grouped ? byProject(ordered, taskDeps) : ordered) {
+    if (grouped && task.project !== heading) {
+      heading = task.project;
+      rows.push({ key: "h:" + heading, heading });
+    }
+    const steps = kids[task.id] || [];
+    const key = stepsKey(scope, task);
+    const open = steps.length > 0 && ui.open[key] !== false; // rows are small: open until folded
+    anyOpen = anyOpen || open;
+    shownAt.set(task.id, "n:" + task.id);
+    rows.push({
+      key: "n:" + task.id,
+      item: task,
+      steps: steps.length ? { key, done: steps.filter((s) => s.status === "done").length, total: steps.length, open } : undefined,
+    });
+    if (!open) continue;
+    const inside = m.levelItems(steps);
+    const doneFold = doneStepsKey(ui, task);
+    const foldOpen = Boolean(ui.showDone[doneFold]);
+    if (inside.done.length) {
+      rows.push({ key: "f:" + task.id, fold: { key: doneFold, count: inside.done.length, open: foldOpen }, parent: "n:" + task.id });
+      if (!foldOpen) for (const step of inside.done) shownAt.set(step.id, "f:" + task.id);
+    }
+    for (const step of foldOpen ? [...inside.done, ...inside.active] : inside.active) {
+      shownAt.set(step.id, "n:" + step.id);
+      rows.push({ key: "n:" + step.id, item: step, parent: "n:" + task.id });
     }
   }
 
@@ -162,6 +169,22 @@ function plan(items: Item[], ui: Ui, m: Model) {
 }
 
 type Plan = ReturnType<typeof plan>;
+
+/** Tasks grouped by project: the groups in the order they first come, each after those it waits for. */
+function byProject(tasks: Item[], taskDeps: Map<string, Set<string>>): Item[] {
+  const projectOf = new Map(tasks.map((task) => [task.id, task.project]));
+  const first = [...new Set(tasks.map((task) => task.project))];
+  const waits = new Map(first.map((project) => [project, new Set<string>()]));
+  for (const task of tasks) {
+    for (const dep of taskDeps.get(task.id)!) if (projectOf.get(dep) !== task.project) waits.get(task.project)!.add(projectOf.get(dep)!);
+  }
+  const order: string[] = [];
+  while (order.length < first.length) {
+    const left = first.filter((project) => !order.includes(project));
+    order.push(left.find((project) => [...waits.get(project)!].every((q) => order.includes(q))) ?? left[0]); // a loop: first come
+  }
+  return order.flatMap((project) => tasks.filter((task) => task.project === project));
+}
 
 // What the selection touches: everything upstream and downstream of it.
 function trace(p: Plan, items: Item[], m: Model, selected: string | null) {
@@ -351,6 +374,7 @@ export function List({ items }: { items: Item[] }) {
       )}
       {p.rows.map((row, n) => {
         const dim = ui.selected !== null && !t.related.has(row.key);
+        if (row.heading) return <HeadingRow key={row.key} path={row.heading} rail={rails[n]} />;
         return row.item ? (
           <ItemRow key={row.key} row={row} item={row.item} rail={rails[n]} dim={dim} />
         ) : (
@@ -442,6 +466,30 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
 
 const ROW = 24;
 const TASK = 28;
+const HEADING = 30;
+
+/** A project's name above its tasks on Global, with the lanes that pass it. */
+function HeadingRow({ path, rail }: { path: string; rail: RailOf }) {
+  const { c, m, scaled } = useBoard();
+  const height = scaled(HEADING);
+  return (
+    <View style={{ flexDirection: "row", height, paddingHorizontal: EDGE }}>
+      {rail.strokes.length > 0 && (
+        <Rail rail={rail} height={height}>
+          {null}
+        </Rail>
+      )}
+      <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "baseline", alignSelf: "flex-end", gap: 6, paddingBottom: scaled(4) }}>
+        <T size={10} weight="600" color={c.foregroundMuted} lines={1}>
+          {m.projectName(path)}
+        </T>
+        <T size={9} color={c.foregroundMuted} lines={1} style={{ flex: 1 }}>
+          {projectPath(path)}
+        </T>
+      </View>
+    </View>
+  );
+}
 
 function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf; dim: boolean }) {
   const { c, m, ui, set, scaled, openMenu } = useBoard();
@@ -515,11 +563,6 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
         {steps && (
           <T size={9} color={c.foregroundMuted}>
             {`${steps.done}/${steps.total}`}
-          </T>
-        )}
-        {!step && ui.tab === "global" && (
-          <T size={9} lines={1} color={c.foregroundMuted} style={{ maxWidth: scaled(80) }}>
-            {m.projectName(item.project)}
           </T>
         )}
       </View>
