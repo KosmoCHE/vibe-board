@@ -114,10 +114,11 @@ Data lives in `~/.vibe-board/`: one JSON file per item under
 
 ## Requirements
 
-- macOS with iTerm2 3.5 or newer, the Python API enabled
+- macOS; launchd keeps the board server running.
+- Python 3.9 or newer for the CLI and the server (the one Xcode's command line tools ship is enough).
+- iTerm2 3.5 or newer, only for the panel inside iTerm2: the Python API enabled
   (Settings › General › Magic) and its Python runtime installed
   (Scripts › Manage › Install Python Runtime); it runs the panel script.
-- Python 3.9 or newer for the CLI (the one Xcode's command line tools ship is enough).
 - Claude Code, for the first agent adapter.
 - Paseo 0.14 or newer, only for the panel inside Paseo.
 

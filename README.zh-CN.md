@@ -88,8 +88,9 @@ paseo plugin install "$PWD/ui"
 
 ## 要求
 
-- macOS，iTerm2 3.5 以上，开启 Python API（Settings › General › Magic），并装好它的 Python 运行时（Scripts › Manage › Install Python Runtime），面板脚本靠它跑。
-- 命令行要 Python 3.9 以上，Xcode 命令行工具自带的那个就够。
+- macOS；看板服务由 launchd 保持运行。
+- 命令行和看板服务要 Python 3.9 以上，Xcode 命令行工具自带的那个就够。
+- iTerm2 3.5 以上，只在要把面板放进 iTerm2 时需要：开启 Python API（Settings › General › Magic），并装好它的 Python 运行时（Scripts › Manage › Install Python Runtime），面板脚本靠它跑。
 - Claude Code（第一个 agent 适配层）。
 - Paseo 0.14 以上，只在要把面板放进 Paseo 时需要。
 
