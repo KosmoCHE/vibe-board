@@ -94,10 +94,6 @@ paseo plugin install "$PWD/ui"
 - Claude Code（第一个 agent 适配层）。
 - Paseo 0.14 以上，只在要把面板放进 Paseo 时需要。
 
-## 第一版不做
-
-甘特视图、Homebrew、其他 agent 的适配。
-
 ## 目录
 
 ```

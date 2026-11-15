@@ -122,10 +122,6 @@ Data lives in `~/.vibe-board/`: one JSON file per item under
 - Claude Code, for the first agent adapter.
 - Paseo 0.14 or newer, only for the panel inside Paseo.
 
-## Not in the first version
-
-A Gantt view, Homebrew formula, adapters for other agents.
-
 ## Layout
 
 ```
