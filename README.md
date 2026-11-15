@@ -41,15 +41,18 @@ items are yours, agents are just the ones pushing them.
   what that agent pushes.
 - **One list that shows what waits for what**, drawn the way a git graph draws
   history. One line per item, prerequisites above what waits for them, a dot
-  per item and a lane per dependency: lanes split where several items wait for
-  one and join where one waits for several, across tasks too. A task's steps
-  branch off a faint trunk below it. Select an item to light up everything
-  upstream and downstream of it. Folded items keep their links as dashed
-  lanes, and an arrow marks a prerequisite outside the current scope. A link
-  is no longer drawn once either end is done. Completed items start folded. A line shows the title, the status, the step
-  count and the session that pushes it, with the session that wrote it down
-  when that was another one; the rest is one press away in the details.
-  Folds are remembered.
+  per item and a lane per dependency, with an arrowhead at what waits: lanes
+  split where several items wait for one and join where one waits for several,
+  across tasks too. A task's steps branch off a faint trunk below it, and links
+  never move a dot. A link among one task's steps runs just right of them; one
+  that passes another task runs in a gutter left of the dots, one per project
+  group on Global. Select an item to light up everything upstream and
+  downstream of it. Folded items keep their links as dashed lanes, and ↗ marks
+  a prerequisite outside the current scope. A link is no longer drawn once
+  either end is done. Completed items start folded. A line shows the title,
+  the status, the step count and the session that pushes it, with the session
+  that wrote it down when that was another one; the rest is one press away in
+  the details. Folds are remembered.
   The web shell bundles a small set of Lucide icons, with no runtime download.
 - **Every item records** its status (`todo`, `doing`, `waiting`, `later`,
   `done`), its driver (which session pushes it, if any), its origin, who
