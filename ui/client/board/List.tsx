@@ -201,7 +201,9 @@ type Paint = "tree" | "plain" | "dashed" | "lit" | "back";
  * Give every row a column for its dot and every dependency a lane, like `git log --graph`:
  * a lane is reserved for the item it leads to, later prerequisites of that item join it,
  * and the item's dot sits where its lane arrives. Below a task its column is the trunk:
- * the steps sit to its right, and each chain of steps is tied to the trunk once.
+ * the steps sit in one column to its right, and each chain of steps is tied to the trunk
+ * once. A link from a step runs down that column only to the very next step; any other
+ * goes round on the right and turns into its dot, so no tie to the trunk crosses it.
  */
 function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   const index = new Map(p.rows.map((row, n) => [row.key, n]));
@@ -213,9 +215,10 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     else back.push(edge);
   }
   const reserved: (string | null)[] = []; // lane → the row it leads to
-  const free = () => {
-    const n = reserved.indexOf(null);
-    return n < 0 ? reserved.length : n;
+  const free = (from = 0) => {
+    let n = from;
+    while (n < reserved.length && reserved[n] !== null) n++;
+    return n;
   };
   const cols: number[] = [];
   const strokes = p.rows.map(() => new Map<string, Stroke>());
@@ -235,10 +238,11 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     const target = p.rows[at(edge.target)];
     if (target.parent && target.parent === p.rows[at(edge.source)].parent) chained.add(edge.target);
   }
-  let trunk: { key: string; row: number; col: number; last: number } | null = null;
+  let trunk: { key: string; row: number; col: number; steps: number; last: number } | null = null;
   const endTrunk = () => {
     if (!trunk) return;
     if (reserved[trunk.col] === "trunk") reserved[trunk.col] = null;
+    reserved[trunk.steps] = null;
     if (trunk.last > trunk.row) {
       draw(trunk.row, { kind: "line", lane: trunk.col, from: 0.5, to: 1, paint: "tree" });
       run(trunk.col, trunk.row, trunk.last, "tree");
@@ -247,33 +251,42 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     trunk = null;
   };
 
+  const arriving = p.rows.map(() => [] as { lane: number; paint: Paint }[]);
   p.rows.forEach((row, n) => {
     if (!row.parent) endTrunk();
-    let col = reserved.indexOf(row.key);
+    const task = trunk && row.parent === trunk.key ? trunk : null; // set on a step
+    let col = task ? task.steps : reserved.indexOf(row.key);
     if (col < 0) col = free();
-    reserved[col] = null;
+    if (!task) reserved[col] = null;
     cols[n] = col;
-    if (trunk && row.parent === trunk.key && !chained.has(row.key)) {
-      draw(n, { kind: "tick", col: trunk.col, lane: col, paint: "tree" });
-      trunk.last = n;
+    for (const { lane, paint } of arriving[n]) {
+      if (reserved[lane] === row.key) reserved[lane] = null;
+      draw(n, lane === col ? { kind: "line", lane, from: 0, to: 0.5, paint } : { kind: "turn", col, lane, up: true, paint });
+    }
+    if (task && !chained.has(row.key)) {
+      draw(n, { kind: "tick", col: task.col, lane: col, paint: "tree" });
+      task.last = n;
     }
     // The nearest dependent continues straight down; the others branch off to the side.
     for (const edge of leaving[n].sort((a, b) => at(a.target) - at(b.target))) {
-      let lane = reserved.indexOf(edge.target);
+      const end = at(edge.target);
+      const nextStep = task && end === n + 1 && p.rows[end].parent === row.parent;
+      let lane = nextStep ? col : reserved.indexOf(edge.target);
       if (lane < 0) {
-        lane = reserved[col] === null ? col : free();
+        lane = task ? free(col + 1) : reserved[col] === null ? col : free();
         reserved[lane] = edge.target;
       }
       const paint: Paint = lit(edge) ? "lit" : edge.summary ? "dashed" : "plain";
-      const end = at(edge.target);
       if (lane === col) draw(n, { kind: "line", lane, from: 0.5, to: 1, paint });
       else draw(n, { kind: "turn", col, lane, up: false, paint });
       run(lane, n, end, paint);
-      draw(end, { kind: "line", lane, from: 0, to: 0.5, paint });
+      arriving[end].push({ lane, paint });
     }
     if (row.steps && row.steps.open) {
-      trunk = { key: row.key, row: n, col, last: n };
       if (reserved[col] === null) reserved[col] = "trunk"; // keep the steps out of the trunk's column
+      const steps = free(col + 1);
+      reserved[steps] = "steps";
+      trunk = { key: row.key, row: n, col, steps, last: n };
     }
   });
   endTrunk();
