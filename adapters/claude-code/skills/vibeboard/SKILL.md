@@ -40,7 +40,7 @@ private list.
 ```
 vibeboard list [--all | --project PATH] [--mine]      what is on the board
 vibeboard show ID
-vibeboard add "title" [--parent ID] [--origin plan|issue|added] [--desc "…"]
+vibeboard add "title" [--parent ID] [--project PATH] [--origin plan|issue|added] [--desc "…"]
                    [--next "…"] [--waiting "…"] [--due 2026-10-03]
 vibeboard claim ID                                     you push this item; status → doing (start time is stamped)
 vibeboard set ID --desc "…" | --next "…" | --waiting "…" | --status S | --depends ID,ID
@@ -72,3 +72,8 @@ context before it claims the item.
 Your session and project are detected from the pane you run in; a background
 job is known by its own session and files new items under the current
 directory. There is nothing to configure.
+
+Your project is the directory your session was started in. When the work is in
+a project inside it (you started in `~/code` and are changing `~/code/shop`),
+add items with `--project ~/code/shop`: they then show in that project and
+still in the one around it. Steps follow their task unless you say otherwise.
