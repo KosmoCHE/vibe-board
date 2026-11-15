@@ -44,8 +44,8 @@ items are yours, agents are just the ones pushing them.
   one and join where one waits for several, across tasks too. A task's steps
   branch off a faint trunk below it. Select an item to light up everything
   upstream and downstream of it. Folded items keep their links as dashed
-  lanes, and an arrow marks a prerequisite outside the current scope.
-  Completed items start folded. A line shows the title, the status, the step
+  lanes, and an arrow marks a prerequisite outside the current scope. A link
+  is no longer drawn once either end is done. Completed items start folded. A line shows the title, the status, the step
   count and the session that pushes it, with the session that wrote it down
   when that was another one; the rest is one press away in the details.
   Folds are remembered.

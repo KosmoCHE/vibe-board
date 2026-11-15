@@ -143,7 +143,8 @@ function plan(items: Item[], ui: Ui, m: Model) {
     for (const id of item.depends_on) {
       const dep = m.byId[id];
       const source = dep && inScope.has(id) ? endpoint(dep) : undefined;
-      if (!dep || source === target) continue;
+      // A link that has been met holds nothing up: once either end is done it is not drawn.
+      if (!dep || dep.status === "done" || item.status === "done" || source === target) continue;
       if (!source) {
         byKey.get(target)!.outside = true; // scope boundaries are marks, never extra rows
         continue;
