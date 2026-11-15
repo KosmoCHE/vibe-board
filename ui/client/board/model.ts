@@ -96,9 +96,10 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
       if (kind === "who") return all.filter((i) => i.driver === value);
       return all;
     }
-    if (tab === "project") return all.filter((i) => focus.projects.some((p) => within(i.project, p)));
-    const sessions = only ? [only] : focus.sessions;
-    return all.filter((i) => i.driver !== null && sessions.includes(i.driver));
+    const pushedHere = (i: Item, sessions: string[]) => i.driver !== null && sessions.includes(i.driver);
+    // Project also holds what its sessions push, though it was filed elsewhere: a step of a task above it.
+    if (tab === "project") return all.filter((i) => focus.projects.some((p) => within(i.project, p)) || pushedHere(i, focus.sessions));
+    return all.filter((i) => pushedHere(i, only ? [only] : focus.sessions));
   }
 
   function paneOf(who: string): Pane | null {

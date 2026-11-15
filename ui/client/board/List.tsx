@@ -454,6 +454,9 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
   // the workspace), and a step its task's driver pushes adds nothing.
   const said = (ui.tab === "session" && (ui.only !== null || m.focus.sessions.length === 1)) || (item.parent && m.byId[item.parent]?.driver === item.driver);
   const driven = Boolean(item.driver) && !done && !said;
+  // Who wrote it down, when that was another session than the one pushing it. Not the human:
+  // what you add and hand to an agent is most of the board.
+  const by = item.driver && !done && item.created_by !== m.board.me && m.whoName(item.created_by) !== m.whoName(item.driver) ? item.created_by : null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -498,6 +501,11 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
           </T>
         )}
         {row.outside && <Icon name="ArrowUpRight" size={11} color={c.accent} />}
+        {by && (
+          <T size={9} lines={1} color={c.foregroundMuted} style={{ maxWidth: scaled(90) }}>
+            {"by @" + m.whoName(by)}
+          </T>
+        )}
         {driven && (
           <View style={{ maxWidth: scaled(90) }}>
             <DriverChip item={item} />

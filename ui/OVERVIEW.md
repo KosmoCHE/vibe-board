@@ -12,7 +12,7 @@ iTerm2 is optional. The installer also registers a panel for iTerm2's toolbelt, 
 
 In the panel:
 
-- Global shows everything and can be narrowed to one project or session. Project shows the items filed under the workspace's directory. Workspace shows what the workspace's agents are pushing; press an agent's name to see only its items.
+- Global shows everything and can be narrowed to one project or session. Project shows the items filed under the workspace's directory, and what its agents push wherever it is filed. Workspace shows what the workspace's agents are pushing; press an agent's name to see only its items.
 - Press an item's dot to tick it off. Press an item for its details, and Edit to change its title, description, status, driver, next step, what it waits for, or due date. The details also add a step, copy the title and delete; right-click a row to copy its title or ID. The `+` adds an item, and Undo takes back the last change.
 - Selecting an item lights up everything upstream and downstream of it.
 - Press an agent's badge to open that agent. When its session has ended, the badge greys out and pressing it lets you hand the item to another session.

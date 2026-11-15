@@ -31,7 +31,7 @@ items are yours, agents are just the ones pushing them.
   - **Global** – everything. A select narrows it to one project or one session.
   - **Project** – the items of the project the focused pane's session was
     started in (a Claude Code launch directory), including those filed under
-    its sub-directories.
+    its sub-directories, and what that session pushes wherever it is filed.
   - **Session** – the items the focused pane's session is pushing.
 
   Project and Session are bound to the pane you click into, like iTerm2's
@@ -46,8 +46,9 @@ items are yours, agents are just the ones pushing them.
   upstream and downstream of it. Folded items keep their links as dashed
   lanes, and an arrow marks a prerequisite outside the current scope.
   Completed items start folded. A line shows the title, the status, the step
-  count and the session that pushes it; the rest is one press away in the
-  details. Folds are remembered.
+  count and the session that pushes it, with the session that wrote it down
+  when that was another one; the rest is one press away in the details.
+  Folds are remembered.
   The web shell bundles a small set of Lucide icons, with no runtime download.
 - **Every item records** its status (`todo`, `doing`, `waiting`, `later`,
   `done`), its driver (which session pushes it, if any), its origin, who
