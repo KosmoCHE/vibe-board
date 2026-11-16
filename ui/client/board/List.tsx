@@ -218,7 +218,8 @@ function trace(p: Plan, items: Item[], m: Model, selected: string | null) {
 type Stroke =
   | { kind: "line"; lane: number; from: number; to: number; paint: Paint } // fractions of the row's height
   | ({ kind: "turn"; up: boolean } & Sideways) // from the dot sideways, then along the lane
-  | ({ kind: "tick" } & Sideways); // sideways from one column to another
+  | ({ kind: "tick" } & Sideways) // sideways from one column to another
+  | { kind: "stem"; lane: number; down: boolean; paint: Paint; arrow?: boolean }; // in the dot's column, from the dot to the row's bottom or top
 // arrow: the link ends here, at what waits; an arrowhead points into the dot.
 // nudge: drawn a little above (-1) or below (1) the dot's centre.
 type Sideways = { col: number; lane: number; paint: Paint; arrow?: boolean; nudge?: -1 | 1 };
@@ -227,7 +228,9 @@ type Paint = "tree" | "plain" | "dashed" | "lit" | "back";
 /**
  * A task's dot sits in one column and its steps' one column to the right, tied to a faint
  * trunk below the task: that is the hierarchy, and links never move it. A link gets a lane
- * per item waited for, spanning it and its prerequisites. One that passes a task, or runs
+ * per item waited for, spanning it and its prerequisites. A link between neighbours in one
+ * column, two tasks or two steps of a task, is just a short line from one dot to the next.
+ * Of the rest, one that passes a task, or runs
  * from a task past its own steps, runs in a gutter left of the dots; the rest stay just
  * right of the dots, as in a git graph. Either way the longest lanes run furthest out.
  * Each of Global's project groups has a gutter of its own, none where no link needs one;
@@ -238,7 +241,12 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   const at = (key: string) => index.get(key)!; // every edge joins two rows
   type Group = { top: number; bottom: number; edges: Edge[] };
   const groups = new Map<string, Group>();
+  const straight = (edge: Edge) => {
+    const [a, b] = [at(edge.source), at(edge.target)];
+    return Math.abs(a - b) === 1 && Boolean(p.rows[a].parent) === Boolean(p.rows[b].parent);
+  };
   for (const edge of p.edges) {
+    if (straight(edge)) continue;
     const group = groups.get(edge.target) ?? { top: at(edge.target), bottom: at(edge.target), edges: [] };
     group.top = Math.min(group.top, at(edge.source));
     group.bottom = Math.max(group.bottom, at(edge.source));
@@ -269,13 +277,16 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   const laneOf = new Map<string, number>(); // the column a group's lane runs in
   for (const [target, g] of longestFirst) if (inGutter(g)) laneOf.set(target, pack((gutter[band(g.top)] ??= []), g));
   const width = (row: number) => gutter[band(row)]?.length ?? 0;
+  // Half a lane more between the dots and the nearest lane on either side, so a link's turn keeps
+  // its rounded corner and a straight end for the arrowhead even next to the dot.
+  const dots = (row: number) => width(row) + (width(row) ? 0.5 : 0);
   const beside: [number, number][][] = []; // columns right of the dots; their rows never cross a band
   for (const [target, g] of [...longestFirst].reverse()) {
     if (inGutter(g)) continue;
     const steps = p.rows.slice(g.top, g.bottom + 1).some((row) => row.parent);
-    laneOf.set(target, pack(beside, g, width(g.top) + (steps ? 2 : 1)));
+    laneOf.set(target, pack(beside, g, width(g.top) + (steps ? 2 : 1)) + dots(g.top) - width(g.top) + 0.5);
   }
-  const cols = p.rows.map((row, n) => width(n) + (row.parent ? 1 : 0));
+  const cols = p.rows.map((row, n) => dots(n) + (row.parent ? 1 : 0));
 
   const strokes = p.rows.map(() => new Map<string, Stroke>());
   const rank: Record<Paint, number> = { tree: 0, dashed: 1, plain: 2, back: 3, lit: 4 };
@@ -286,7 +297,10 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
       draw(row, { ...stroke, to: 0.5 });
       return draw(row, { ...stroke, from: 0.5 });
     }
-    const key = stroke.kind === "line" ? `l${stroke.lane}:${stroke.from}:${stroke.to}` : `${stroke.kind}${stroke.col}:${stroke.lane}:${stroke.kind === "turn" && stroke.up}`;
+    let key: string;
+    if (stroke.kind === "line") key = `l${stroke.lane}:${stroke.from}:${stroke.to}`;
+    else if (stroke.kind === "stem") key = `s${stroke.lane}:${stroke.down}`;
+    else key = `${stroke.kind}${stroke.col}:${stroke.lane}:${stroke.kind === "turn" && stroke.up}`;
     const known = strokes[row].get(key);
     if (!known || rank[stroke.paint] > rank[known.paint]) strokes[row].set(key, stroke);
   };
@@ -301,11 +315,17 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     for (let k = task + 1; k < n; k++) draw(k, { kind: "line", lane: cols[task], from: 0, to: 1, paint: "tree" });
     draw(n, { kind: "line", lane: cols[task], from: 0, to: 0.5, paint: "tree" });
   });
+  const paintOf = (edge: Edge): Paint => (lit(edge) ? "lit" : at(edge.source) > at(edge.target) ? "back" : edge.summary ? "dashed" : "plain");
+  for (const edge of p.edges.filter(straight)) {
+    const top = Math.min(at(edge.source), at(edge.target));
+    const end = at(edge.target);
+    draw(top, { kind: "stem", lane: cols[top], down: true, paint: paintOf(edge), arrow: top === end });
+    draw(top + 1, { kind: "stem", lane: cols[top + 1], down: false, paint: paintOf(edge), arrow: top + 1 === end });
+  }
   for (const [target, g] of groups) {
     const lane = laneOf.get(target)!;
     for (const edge of g.edges) {
-      const below = at(edge.source) > at(edge.target);
-      const paint: Paint = lit(edge) ? "lit" : below ? "back" : edge.summary ? "dashed" : "plain";
+      const paint = paintOf(edge);
       const top = Math.min(at(edge.source), at(edge.target));
       const bottom = Math.max(at(edge.source), at(edge.target));
       const end = at(edge.target);
@@ -333,7 +353,7 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     // A row that waits along one link and is waited for along another on the same side of its
     // dot: the link it waits on comes in above the centre and the others leave below it, so
     // the two never run together.
-    const sideways = [...row.values()].flatMap((stroke) => (stroke.kind === "line" || stroke.paint === "tree" ? [] : [stroke]));
+    const sideways = [...row.values()].flatMap((stroke) => (stroke.kind === "line" || stroke.kind === "stem" || stroke.paint === "tree" ? [] : [stroke]));
     const into = sideways.find((stroke) => stroke.arrow);
     const out = sideways.filter((stroke) => into && stroke !== into && stroke.lane > stroke.col === into.lane > into.col);
     if (into && out.length) {
@@ -447,9 +467,13 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
           const to = laneX(stroke.lane) - Math.sign(stroke.lane - stroke.col) * (thick / 2);
           return <View key={n} style={{ position: "absolute", left: Math.min(from, to), top: level(stroke) - thick / 2, width: Math.abs(to - from), height: thick, backgroundColor: paint, opacity: fade }} />;
         }
-        if (stroke.kind === "line") {
+        if (stroke.kind === "line" || stroke.kind === "stem") {
           const wide = stroke.paint === "tree" ? 1 : LINE;
-          const frame: ViewStyle = { position: "absolute", left: laneX(stroke.lane) - wide / 2, top: stroke.from * height, width: wide, height: (stroke.to - stroke.from) * height, opacity: fade };
+          let [top, bottom] = [0, height];
+          if (stroke.kind === "line") [top, bottom] = [stroke.from * height, stroke.to * height];
+          else if (stroke.down) top = mid + disc + (stroke.arrow ? head - 1 : 0); // from the disc, or the arrowhead's base
+          else bottom = mid - disc - (stroke.arrow ? head - 1 : 0);
+          const frame: ViewStyle = { position: "absolute", left: laneX(stroke.lane) - wide / 2, top, width: wide, height: bottom - top, opacity: fade };
           if (stroke.paint !== "dashed") return <View key={n} style={[frame, { backgroundColor: paint }]} />;
           return (
             <View key={n} style={[frame, { gap: 3, overflow: "hidden" }]}>
@@ -482,6 +506,14 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
       })}
       {rail.strokes.map((stroke, n) => {
         if (stroke.kind === "line" || !stroke.arrow) return null;
+        const opacity = stroke.paint === "lit" || stroke.paint === "back" ? 1 : 0.7;
+        if (stroke.kind === "stem") {
+          // Down into the dot from the row above, or up into it from the row below.
+          const half = head * 0.65;
+          const point: ViewStyle = stroke.down ? { borderBottomWidth: head, borderBottomColor: color[stroke.paint] } : { borderTopWidth: head, borderTopColor: color[stroke.paint] };
+          const box: ViewStyle = { position: "absolute", left: laneX(stroke.lane) - half, top: stroke.down ? mid + disc - 1 : mid - disc + 1 - head, borderLeftWidth: half, borderRightWidth: half, borderLeftColor: "transparent", borderRightColor: "transparent", opacity };
+          return <View key={"arrow" + n} style={[box, point]} />;
+        }
         // The head sits on the side the lane comes in from, against the disc.
         const right = stroke.lane > stroke.col;
         const point: ViewStyle = right ? { borderRightWidth: head, borderRightColor: color[stroke.paint] } : { borderLeftWidth: head, borderLeftColor: color[stroke.paint] };
@@ -497,7 +529,7 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
                 borderBottomWidth: head * 0.65,
                 borderTopColor: "transparent",
                 borderBottomColor: "transparent",
-                opacity: stroke.paint === "lit" || stroke.paint === "back" ? 1 : 0.7,
+                opacity,
               },
               point,
             ]}

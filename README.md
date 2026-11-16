@@ -44,11 +44,13 @@ items are yours, agents are just the ones pushing them.
   per item and a lane per dependency, with an arrowhead at what waits: lanes
   split where several items wait for one and join where one waits for several,
   across tasks too. A task's steps branch off a faint trunk below it, and links
-  never move a dot. A link that passes a task, or runs from a task past its
-  own steps, runs in a gutter left of the dots, one per project group on
-  Global; the rest stay just right of the dots. Select an item to light up
-  everything upstream and downstream of it. Folded items keep their links as dashed lanes, and ↗ marks
-  a prerequisite outside the current scope. A link is no longer drawn once
+  never move a dot. Two items next to each other in one column are joined
+  straight down. Of the other links, one that passes a task, or runs from a
+  task past its own steps, runs in a gutter left of the dots, one per project
+  group on Global; the rest stay just right of the dots. Select an item to
+  light up everything upstream and downstream of it. Folded items keep their
+  links as dashed lanes, and ↗ marks a prerequisite outside the current
+  scope. A link is no longer drawn once
   either end is done. Completed items start folded. A line shows the title,
   the status, the step count and the session that pushes it, with the session
   that wrote it down when that was another one; the rest is one press away in
