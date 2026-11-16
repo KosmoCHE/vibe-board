@@ -5,6 +5,7 @@
 import type { ComponentType } from "react";
 
 export type Status = "todo" | "doing" | "waiting" | "later" | "done";
+export type Priority = "normal" | "high";
 export type Tab = "global" | "project" | "session";
 
 export interface Item {
@@ -12,6 +13,7 @@ export interface Item {
   title: string;
   description: string;
   status: Status;
+  priority: Priority;
   origin: string;
   created_by: string;
   driver: string | null;

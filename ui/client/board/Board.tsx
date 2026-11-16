@@ -284,6 +284,9 @@ export function Board({ host }: { host: Host }) {
             actions={[
               ["Copy title", () => copyTitle(menu.item)],
               ["Copy ID", () => copy(menu.item.id, `Copied the ID ${menu.item.id}`)],
+              menu.item.priority === "high"
+                ? ["Mark normal priority", () => patch(menu.item.id, { priority: "normal" })]
+                : ["Mark high priority", () => patch(menu.item.id, { priority: "high" })],
             ]}
           />
         )}

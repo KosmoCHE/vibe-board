@@ -355,6 +355,35 @@ def test_start_and_done_times_come_from_the_clock():
         store.update(item["id"], started_at="2026-01-01")
 
 
+def test_priority_is_normal_unless_set(tmp_home):
+    item = store.create("x", "/tmp/a")
+    assert item["priority"] == "normal"
+    assert store.update(item["id"], priority="high")["priority"] == "high"
+    with pytest.raises(ValueError):
+        store.update(item["id"], priority="urgent")
+    # An item written before there were priorities reads as normal.
+    path = next((tmp_home / "projects").glob(f"*/items/{item['id']}.json"))
+    data = json.loads(path.read_text())
+    del data["priority"]
+    path.write_text(json.dumps(data))
+    assert store.get(item["id"])["priority"] == "normal"
+
+
+def test_cli_sets_priority_and_list_marks_high_items(capsys):
+    def line(title):
+        cli.main(["list", "--project", "/tmp/a"])
+        return next(row for row in capsys.readouterr().out.splitlines() if title in row)
+
+    cli.main(["add", "Fix the login", "--project", "/tmp/a", "--priority", "high"])
+    cli.main(["add", "Tidy the docs", "--project", "/tmp/a"])
+    capsys.readouterr()
+    assert line("Fix the login").endswith("Fix the login  [high]")
+    assert line("Tidy the docs").endswith("Tidy the docs")
+    cli.main(["set", "Fix the login", "--priority", "normal"])
+    capsys.readouterr()
+    assert line("Fix the login").endswith("Fix the login")
+
+
 def test_description_is_free_text():
     item = store.create("a", "/tmp/a", description="why\nand how")
     assert item["description"] == "why\nand how"

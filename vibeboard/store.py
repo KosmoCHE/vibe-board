@@ -25,6 +25,7 @@ from pathlib import Path
 
 STATUSES = ["todo", "doing", "waiting", "later", "done"]
 ORIGINS = ["plan", "issue", "added"]
+PRIORITIES = ["normal", "high"]
 ME = "me"
 PASEO = "paseo"  # a pane record's `host` when the pane is a Paseo agent; iTerm2 panes carry none
 ARCHIVE_AFTER_DAYS = 7  # how long a finished task stays on the board, unless config.json says
@@ -35,6 +36,7 @@ DEFAULTS = {
     "description": "",
     "status": "todo",
     "origin": "plan",
+    "priority": "normal",
     "created_by": ME,
     "driver": None,
     "project": None,
@@ -51,6 +53,7 @@ EDITABLE = {
     "title",
     "description",
     "status",
+    "priority",
     "driver",
     "project",
     "parent",
@@ -162,6 +165,7 @@ def load_all(archived: bool = False) -> dict[str, dict]:
             item = _read_json(f)
         except ValueError:
             continue  # a torn or corrupt file loses one item, never the board
+        item.setdefault("priority", DEFAULTS["priority"])  # written before there were priorities
         out[item["id"]] = item
     return out
 
@@ -404,6 +408,8 @@ def _validated(fields: dict, items: dict, creating: bool, self_id: str | None = 
                 raise ValueError(
                     f"{len(open_steps)} step(s) still open; finish or delete them first"
                 )
+        if key == "priority" and value not in PRIORITIES:
+            raise ValueError(f"priority must be one of {', '.join(PRIORITIES)}")
         if key == "origin" and value not in ORIGINS:
             raise ValueError(f"origin must be one of {', '.join(ORIGINS)}")
         if key == "driver" and value == ME:

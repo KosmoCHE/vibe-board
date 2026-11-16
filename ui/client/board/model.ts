@@ -146,6 +146,16 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
     return options;
   }
 
+  /** High priority, while it is still to be done. */
+  function high(item: Item): boolean {
+    return item.priority === "high" && item.status !== "done";
+  }
+  const holding = new Set(board.items.filter(high).map((step) => step.parent));
+  /** One of its steps is high: it sorts with the high ones, and says so while folded. */
+  function holdsHigh(item: Item): boolean {
+    return holding.has(item.id);
+  }
+
   /** Is anything this item depends on still open? */
   function blocked(item: Item): boolean {
     return item.depends_on.some((d) => byId[d] && byId[d].status !== "done");
@@ -156,11 +166,12 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
     return item.status === "todo" && blocked(item) ? "waiting" : item.status;
   }
 
-  // One level reads top to bottom as now → next → waiting → blocked → later, oldest first
-  // within a group, and a blocked item always below the siblings it waits for.
+  // One level reads top to bottom as now → next → waiting → blocked → later, the high
+  // priority ones first, oldest first within a group, and a blocked item always below the
+  // siblings it waits for.
   const RANK: Record<string, number> = { doing: 0, todo: 1, waiting: 2, later: 4 };
   function ordered(items: Item[]): Item[] {
-    const rank = (i: Item) => (blocked(i) && i.status !== "later" ? 3 : RANK[i.status]);
+    const rank = (i: Item) => (high(i) || holdsHigh(i) ? 0 : 5) + (blocked(i) && i.status !== "later" ? 3 : RANK[i.status]);
     const out = items.slice().sort((x, y) => rank(x) - rank(y) || byCreation(x, y));
     const seen = new Set<string>();
     for (let n = 0; n < out.length; n++) {
@@ -198,6 +209,8 @@ export function model(board: BoardData, host: Pick<Host, "beside" | "project">) 
     shortId,
     driverOptions,
     blocked,
+    high,
+    holdsHigh,
     shownStatus,
     levelItems,
   };

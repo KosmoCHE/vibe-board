@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import type { Item, Status } from "./host";
+import type { Item, Priority, Status } from "./host";
 import { projectPath, when } from "./model";
 import { Complete, DoneFold, doneStepsKey, DriverChip, Field, Icon, Link, Select, statusColor, T, Tint, useBoard } from "./parts";
 
@@ -84,6 +84,16 @@ function Editor({ item }: { item: Item }) {
           onChange={(status) => patch(item.id, { status: status as Status })}
         />
       </Row>
+      <Row label="Priority">
+        <Select
+          value={item.priority}
+          options={[
+            { value: "normal", label: "Normal" },
+            { value: "high", label: "High" },
+          ]}
+          onChange={(priority) => patch(item.id, { priority: priority as Priority })}
+        />
+      </Row>
       <Row label="Driver">
         <Select value={item.driver || ""} options={m.driverOptions()} onChange={(driver) => patch(item.id, { driver: driver || null })} />
       </Row>
@@ -113,6 +123,11 @@ function Details({ item }: { item: Item }) {
         <Complete item={item} />
         <T color={statusColor(c, item.status)}>{m.board.labels[item.status]}</T>
       </Row>
+      {item.priority === "high" && (
+        <Row label="Priority">
+          <T color={c.statusDanger}>High</T>
+        </Row>
+      )}
       <Row label="Created">
         <T selectable>{when(item.created_at)}</T>
       </Row>

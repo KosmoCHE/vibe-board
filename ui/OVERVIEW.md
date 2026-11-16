@@ -13,7 +13,8 @@ iTerm2 is optional. The installer also registers a panel for iTerm2's toolbelt, 
 In the panel:
 
 - Global shows everything, grouped by project, and can be narrowed to one project or session. Project shows the items filed under the workspace's directory, and what its agents push wherever it is filed. Workspace shows what the workspace's agents are pushing; press an agent's name to see only its items.
-- Press an item's dot to tick it off. Press an item for its details, and Edit to change its title, description, status, driver, next step, what it waits for, or due date. The details also add a step, copy the title and delete; right-click a row to copy its title or ID. The `+` adds an item, and Undo takes back the last change.
+- Press an item's dot to tick it off. Press an item for its details, and Edit to change its title, description, status, priority, driver, next step, what it waits for, or due date. The details also add a step, copy the title and delete; right-click a row to copy its title or ID, or to mark it high priority. The `+` adds an item, and Undo takes back the last change.
+- High-priority items come first in their level, below what they wait for, with a red wash and a red bar at the panel's edge. A folded task that hides a high step shows a fainter one.
 - Selecting an item lights up everything upstream and downstream of it.
 - Press an agent's badge to open that agent. When its session has ended, the badge greys out and pressing it lets you hand the item to another session.
 - The gear holds two settings shared with the iTerm2 panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never).

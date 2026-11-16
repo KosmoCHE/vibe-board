@@ -41,9 +41,9 @@ private list.
 vibeboard list [--all | --project PATH] [--mine]      what is on the board
 vibeboard show ID
 vibeboard add "title" [--parent ID] [--project PATH] [--origin plan|issue|added] [--desc "…"]
-                   [--next "…"] [--waiting "…"] [--due 2026-10-03]
+                   [--next "…"] [--waiting "…"] [--due 2026-10-03] [--priority high]
 vibeboard claim ID                                     you push this item; status → doing (start time is stamped)
-vibeboard set ID --desc "…" | --next "…" | --waiting "…" | --status S | --depends ID,ID
+vibeboard set ID --desc "…" | --next "…" | --waiting "…" | --status S | --depends ID,ID | --priority P
 vibeboard done ID
 ```
 
@@ -55,6 +55,14 @@ Two levels only: an item and its steps. A step never has steps; if one needs a
 plan of its own, make it an item. An item is done when all its steps are;
 to add steps to a finished item, set it back to `doing` first. Depend on the smallest set: waiting for all
 of an item's steps means depending on the item.
+
+## Priority
+
+An item is `normal` unless the human says otherwise. Set `--priority high`
+only when the human calls something high priority or urgent, or says to do it
+first; never on your own judgement. `--priority normal` takes it back. High
+items sort first on the board and stand out, and so does a task holding a
+high step.
 
 ## Statuses
 

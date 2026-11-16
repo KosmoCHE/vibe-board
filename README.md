@@ -57,7 +57,8 @@ items are yours, agents are just the ones pushing them.
   the details. Folds are remembered.
   The web shell bundles a small set of Lucide icons, with no runtime download.
 - **Every item records** its status (`todo`, `doing`, `waiting`, `later`,
-  `done`), its driver (which session pushes it, if any), its origin, who
+  `done`), its priority (`normal` or `high`), its driver (which session
+  pushes it, if any), its origin, who
   created it, sub-steps, dependencies (across projects too), the next step,
   what it is waiting for, and optional dates.
 - **Origin says why an item exists**, so the original plan stays visible when
@@ -70,6 +71,11 @@ items are yours, agents are just the ones pushing them.
 
   A task shows `2/4`: done/total over its direct sub-steps. A line that is
   not from the plan carries its `issue` or `added` mark.
+- **High priority stands out.** An item is `normal` until you mark it `high`
+  in its details or from its right-click menu; agents mark one only when you
+  say so. High items come first in their level, still below what they wait
+  for, with a red wash and a red bar at the panel's edge. A task holding a
+  high step sorts with them, and while folded it carries a fainter mark.
 - **Finished tasks leave the board after a week.** A task that has been done
   for longer than the set number of days is archived with its steps, so the
   board stays small and quick. The settings behind the gear at the top right
@@ -81,7 +87,7 @@ items are yours, agents are just the ones pushing them.
   the Paseo panels.
 - **You edit in the panel.** Press an item's dot to tick it off, press an item for details (adding a
   step, copying the title and deleting are there; right-click a row to copy its
-  title or ID), press it twice to edit, `+`
+  title or ID or to mark it high priority), press it twice to edit, `+`
   at the top right to add, Undo (⌘Z in iTerm2) to take a change back. Press a
   session badge to jump to that pane or agent. When a session ends its badge
   greys out and you can hand the item to another one.

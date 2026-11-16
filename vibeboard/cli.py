@@ -137,6 +137,7 @@ def _field_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--waiting", dest="waiting_for", help="who or what this waits for")
     p.add_argument("--depends", help="comma-separated ids this depends on")
     p.add_argument("--due", help="YYYY-MM-DD")
+    p.add_argument("--priority", choices=store.PRIORITIES, help="high only when the human says so")
 
 
 def _fields(args: argparse.Namespace) -> dict:
@@ -146,6 +147,7 @@ def _fields(args: argparse.Namespace) -> dict:
         ("next_step", "next"),
         ("waiting_for", "waiting_for"),
         ("due", "due"),
+        ("priority", "priority"),
     ):
         value = getattr(args, attr, None)
         if value is not None:
@@ -270,6 +272,8 @@ def _print_tree(items: dict, everything: dict) -> None:
 
 def _print_item(item: dict, children: dict, everything: dict, depth: int) -> None:
     tags = []
+    if item["priority"] == "high" and item["status"] != "done":
+        tags.append("high")
     if item["status"] not in ("todo", "done"):
         tags.append(item["status"])
     if item["driver"]:

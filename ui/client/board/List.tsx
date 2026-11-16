@@ -581,6 +581,9 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
   const steps = row.steps;
   const step = Boolean(row.parent);
   const height = scaled(step ? ROW : TASK);
+  // High priority: a red wash and a bar at the panel's edge. A folded task hiding a high step
+  // gets a fainter one, so the step is not missed. Both fade with the row.
+  const urgent = (m.high(item) ? 1 : steps && !steps.open && m.holdsHigh(item) ? 0.45 : 0) * (dim ? 0.4 : 1);
   // Who pushes it. A Session tab of one session already says (in Paseo it holds every agent of
   // the workspace), and a step its task's driver pushes adds nothing.
   const said = (ui.tab === "session" && (ui.only !== null || m.focus.sessions.length === 1)) || (item.parent && m.byId[item.parent]?.driver === item.driver);
@@ -597,6 +600,12 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
       {...onRightClick((x, y) => openMenu(item, x, y))}
       style={{ flexDirection: "row", alignItems: "center", height, paddingHorizontal: EDGE }}
     >
+      {urgent > 0 && (
+        <>
+          <Tint color={c.statusDanger} opacity={0.13 * urgent} />
+          <View style={{ position: "absolute", left: 0, top: scaled(3), bottom: scaled(3), width: scaled(3), borderRadius: scaled(1.5), backgroundColor: c.statusDanger, opacity: urgent }} />
+        </>
+      )}
       {item.id === ui.selected && <Tint color={c.accent} opacity={0.16} />}
       <Rail rail={rail} height={height}>
         <Complete
