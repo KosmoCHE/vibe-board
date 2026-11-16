@@ -656,17 +656,21 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
 function FoldRow({ row, fold, rail, dim }: { row: Row; fold: Fold; rail: RailOf; dim: boolean }) {
   const { c, set, scaled } = useBoard();
   const height = scaled(ROW);
+  // Like an item's row, it fades its own marks, never the lanes passing through: a lit one stays lit.
+  const fade = dim && !fold.open ? 0.4 : 1;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ expanded: fold.open }}
       onPress={() => set((now) => ({ showDone: { ...now.showDone, [fold.key]: !fold.open } }))}
-      style={{ flexDirection: "row", alignItems: "center", height, paddingHorizontal: EDGE, opacity: dim && !fold.open ? 0.4 : 1 }}
+      style={{ flexDirection: "row", alignItems: "center", height, paddingHorizontal: EDGE }}
     >
       <Rail rail={rail} height={height}>
-        <Icon name="Check" size={11} color={c.statusSuccess} />
+        <View style={{ opacity: fade }}>
+          <Icon name="Check" size={11} color={c.statusSuccess} />
+        </View>
       </Rail>
-      <T size={row.parent ? 10 : 11} color={c.foregroundMuted} style={{ marginLeft: AFTER_DOT }}>{`${fold.open ? "Hide" : "Show"} ${fold.count} done`}</T>
+      <T size={row.parent ? 10 : 11} color={c.foregroundMuted} style={{ marginLeft: AFTER_DOT, opacity: fade }}>{`${fold.open ? "Hide" : "Show"} ${fold.count} done`}</T>
     </Pressable>
   );
 }
