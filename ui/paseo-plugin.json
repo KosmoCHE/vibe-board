@@ -3,9 +3,9 @@
   "name": "Vibe Board",
   "description": "The progress board you share with your agents, in every workspace",
   "media": [
-    "media/board.png",
-    "media/details.png",
-    "media/workspace.png"
+    "media/project.png",
+    "media/global.png",
+    "media/details.png"
   ],
   "requirements": {
     "paseo": ">=0.14.0"
