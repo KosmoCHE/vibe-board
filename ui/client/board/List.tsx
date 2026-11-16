@@ -227,11 +227,11 @@ type Paint = "tree" | "plain" | "dashed" | "lit" | "back";
 /**
  * A task's dot sits in one column and its steps' one column to the right, tied to a faint
  * trunk below the task: that is the hierarchy, and links never move it. A link gets a lane
- * per item waited for, spanning it and its prerequisites. One that only passes a task's
- * steps runs just right of them, as in a git graph; one that passes another task runs in
- * a gutter left of the dots, the longest lanes furthest left. Each of Global's project
- * groups has a gutter of its own, none where no such link runs; groups a link crosses
- * share one.
+ * per item waited for, spanning it and its prerequisites. One that passes a task, or runs
+ * from a task past its own steps, runs in a gutter left of the dots; the rest stay just
+ * right of the dots, as in a git graph. Either way the longest lanes run furthest out.
+ * Each of Global's project groups has a gutter of its own, none where no link needs one;
+ * groups a link crosses share one.
  */
 function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   const index = new Map(p.rows.map((row, n) => [row.key, n]));
@@ -245,7 +245,10 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
     group.edges.push(edge);
     groups.set(edge.target, group);
   }
-  const inGutter = (g: Group) => p.rows.slice(g.top + 1, g.bottom).some((row) => !row.parent);
+  const inGutter = (g: Group) => {
+    const passed = p.rows.slice(g.top + 1, g.bottom);
+    return passed.some((row) => !row.parent) || (passed.length > 0 && !p.rows[g.top].parent);
+  };
   // Sections start at Global's headings; a band is a run of sections that links join.
   const section: number[] = [];
   p.rows.forEach((row, n) => (section[n] = (n ? section[n - 1] : 0) + (row.heading && n ? 1 : 0)));
@@ -254,7 +257,7 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   const bandOf: number[] = [];
   for (let s = 0; s <= section[p.rows.length - 1]; s++) bandOf[s] = s && !joined.has(s - 1) ? bandOf[s - 1] + 1 : (bandOf[s - 1] ?? 0);
   const band = (row: number) => bandOf[section[row]];
-  /** The leftmost lane from `from` on whose row spans miss this group's, longest groups first. */
+  /** The first lane from `from` on whose row spans miss this group's. */
   const pack = (lanes: [number, number][][], g: Group, from = 0) => {
     let lane = from;
     while (lanes[lane]?.some(([top, bottom]) => bottom >= g.top && top <= g.bottom)) lane++;
@@ -267,7 +270,7 @@ function lanes(p: Plan, lit: (edge: Edge) => boolean) {
   for (const [target, g] of longestFirst) if (inGutter(g)) laneOf.set(target, pack((gutter[band(g.top)] ??= []), g));
   const width = (row: number) => gutter[band(row)]?.length ?? 0;
   const beside: [number, number][][] = []; // columns right of the dots; their rows never cross a band
-  for (const [target, g] of longestFirst) {
+  for (const [target, g] of [...longestFirst].reverse()) {
     if (inGutter(g)) continue;
     const steps = p.rows.slice(g.top, g.bottom + 1).some((row) => row.parent);
     laneOf.set(target, pack(beside, g, width(g.top) + (steps ? 2 : 1)));
