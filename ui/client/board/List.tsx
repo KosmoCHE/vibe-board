@@ -430,8 +430,11 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
   const dot = scaled(DOT);
   const disc = scaled(DISC);
   const laneX = (lane: number) => dot / 2 + scaled(lane * LANE); // centre of a lane
-  const across = (stroke: Sideways) => Math.abs(laneX(stroke.lane) - laneX(stroke.col));
-  const level = (stroke: Sideways) => mid + (stroke.nudge ?? 0) * scaled(3); // where it meets the dot
+  const level = (stroke: Sideways) => mid + (stroke.nudge ?? 0) * scaled(4); // where it meets the dot
+  const head = scaled(6); // an arrowhead's length
+  // Where a sideways stroke starts at the dot's end: past the arrowhead if it has one, so the line
+  // never runs under it, else from the middle (a trunk tie from the trunk's edge).
+  const start = (stroke: Sideways, gap: number) => laneX(stroke.col) + Math.sign(stroke.lane - stroke.col) * (stroke.arrow ? disc + head - 1 : gap);
   return (
     <View style={{ width: laneX(widest) + dot / 2, height }}>
       {rail.strokes.map((stroke, n) => {
@@ -439,9 +442,10 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
         const fade = stroke.paint === "lit" || stroke.paint === "back" ? 1 : stroke.paint === "tree" ? 0.3 : 0.7;
         if (stroke.kind === "tick") {
           const thick = stroke.paint === "tree" ? 1 : LINE;
-          // It stops at the edge of the line it meets, so the two never overlap into a brighter spot.
-          const left = laneX(Math.min(stroke.col, stroke.lane)) + thick / 2;
-          return <View key={n} style={{ position: "absolute", left, top: level(stroke) - thick / 2, width: across(stroke) - thick, height: thick, backgroundColor: paint, opacity: fade }} />;
+          // It stops at the edges of the lines it meets, so they never overlap into a brighter spot.
+          const from = start(stroke, thick / 2);
+          const to = laneX(stroke.lane) - Math.sign(stroke.lane - stroke.col) * (thick / 2);
+          return <View key={n} style={{ position: "absolute", left: Math.min(from, to), top: level(stroke) - thick / 2, width: Math.abs(to - from), height: thick, backgroundColor: paint, opacity: fade }} />;
         }
         if (stroke.kind === "line") {
           const wide = stroke.paint === "tree" ? 1 : LINE;
@@ -455,12 +459,16 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
             </View>
           );
         }
-        // Sideways from the dot, then a rounded turn into the lane.
+        // Sideways from the dot, then a rounded turn into the lane, tightened to leave an arrowhead
+        // a straight end.
         const right = stroke.lane > stroke.col;
+        const from = start(stroke, 0);
+        const edge = laneX(stroke.lane) + (right ? LINE / 2 : -LINE / 2); // the lane line's outer edge
+        const radius = Math.min(disc, Math.abs(edge - from) - LINE);
         const frame: ViewStyle = {
           position: "absolute",
-          left: laneX(Math.min(stroke.col, stroke.lane)) - LINE / 2,
-          width: across(stroke) + LINE,
+          left: Math.min(from, edge),
+          width: Math.abs(edge - from),
           top: stroke.up ? 0 : level(stroke) - LINE / 2,
           height: (stroke.up ? level(stroke) : height - level(stroke)) + LINE / 2,
           borderColor: paint,
@@ -468,13 +476,12 @@ function Rail({ rail, height, children }: { rail: RailOf; height: number; childr
           opacity: fade,
         };
         const corner: ViewStyle = stroke.up
-          ? { borderBottomWidth: LINE, ...(right ? { borderRightWidth: LINE, borderBottomRightRadius: disc } : { borderLeftWidth: LINE, borderBottomLeftRadius: disc }) }
-          : { borderTopWidth: LINE, ...(right ? { borderRightWidth: LINE, borderTopRightRadius: disc } : { borderLeftWidth: LINE, borderTopLeftRadius: disc }) };
+          ? { borderBottomWidth: LINE, ...(right ? { borderRightWidth: LINE, borderBottomRightRadius: radius } : { borderLeftWidth: LINE, borderBottomLeftRadius: radius }) }
+          : { borderTopWidth: LINE, ...(right ? { borderRightWidth: LINE, borderTopRightRadius: radius } : { borderLeftWidth: LINE, borderTopLeftRadius: radius }) };
         return <View key={n} style={[frame, corner]} />;
       })}
       {rail.strokes.map((stroke, n) => {
         if (stroke.kind === "line" || !stroke.arrow) return null;
-        const head = scaled(6);
         // The head sits on the side the lane comes in from, against the disc.
         const right = stroke.lane > stroke.col;
         const point: ViewStyle = right ? { borderRightWidth: head, borderRightColor: color[stroke.paint] } : { borderLeftWidth: head, borderLeftColor: color[stroke.paint] };
