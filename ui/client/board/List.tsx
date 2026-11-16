@@ -589,8 +589,9 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
   // what you add and hand to an agent is most of the board.
   const by = item.driver && !done && item.created_by !== m.board.me && m.whoName(item.created_by) !== m.whoName(item.driver) ? item.created_by : null;
   return (
+    // Not a button: its fold arrow and session badge are buttons, and a button holds no other.
+    // It still takes focus, and Enter opens the details.
     <Pressable
-      accessibilityRole="button"
       accessibilityLabel={item.title + ", " + m.board.labels[item.status]}
       onPress={press}
       {...onRightClick((x, y) => openMenu(item, x, y))}
