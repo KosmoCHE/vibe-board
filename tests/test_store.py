@@ -358,7 +358,7 @@ def test_start_and_done_times_come_from_the_clock():
 def test_priority_is_normal_unless_set(tmp_home):
     item = store.create("x", "/tmp/a")
     assert item["priority"] == "normal"
-    assert store.update(item["id"], priority="high")["priority"] == "high"
+    assert store.update(item["id"], priority="high", due="2026-12-01")["priority"] == "high"
     with pytest.raises(ValueError):
         store.update(item["id"], priority="urgent")
     # An item written before there were priorities reads as normal.
@@ -369,15 +369,39 @@ def test_priority_is_normal_unless_set(tmp_home):
     assert store.get(item["id"])["priority"] == "normal"
 
 
+def test_high_priority_needs_a_due_date():
+    with pytest.raises(ValueError, match="due date"):
+        store.create("x", "/tmp/a", priority="high")
+    task = store.create("x", "/tmp/a")
+    with pytest.raises(ValueError, match="due date"):
+        store.update(task["id"], priority="high")
+    step = store.create("y", "/tmp/a", parent=task["id"])
+    with pytest.raises(ValueError, match="due date"):
+        store.update(step["id"], priority="high")
+    store.update(step["id"], priority="high", due="2026-12-01")
+    # The date can move but not go away while the item is high.
+    assert store.update(step["id"], due="2026-12-05")["due"] == "2026-12-05"
+    with pytest.raises(ValueError, match="due date"):
+        store.update(step["id"], due=None)
+    assert store.update(step["id"], priority="normal")["priority"] == "normal"
+    assert store.update(step["id"], due=None)["due"] is None
+    # Normal items never need one.
+    assert store.update(task["id"], title="x2")["due"] is None
+
+
 def test_cli_sets_priority_and_list_marks_high_items(capsys):
     def line(title):
         cli.main(["list", "--project", "/tmp/a"])
         return next(row for row in capsys.readouterr().out.splitlines() if title in row)
 
-    cli.main(["add", "Fix the login", "--project", "/tmp/a", "--priority", "high"])
+    assert cli.main(["add", "Fix the login", "--project", "/tmp/a", "--priority", "high"]) == 1
+    assert "due date" in capsys.readouterr().err
+    cli.main(
+        ["add", "Fix the login", "--project", "/tmp/a", "--priority", "high", "--due", "2026-12-01"]
+    )
     cli.main(["add", "Tidy the docs", "--project", "/tmp/a"])
     capsys.readouterr()
-    assert line("Fix the login").endswith("Fix the login  [high]")
+    assert line("Fix the login").endswith("Fix the login  [high, due 2026-12-01]")
     assert line("Tidy the docs").endswith("Tidy the docs")
     cli.main(["set", "Fix the login", "--priority", "normal"])
     capsys.readouterr()

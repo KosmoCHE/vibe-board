@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { BoardData, Host, Item, Settings, Tab } from "./host";
 import { Inspector } from "./Inspector";
-import { lasting, List, reveal } from "./List";
-import { model, projectPath } from "./model";
+import { lasting, List, reveal, StuckHeading } from "./List";
+import type { Stuck } from "./List";
+import { dueDay, model, projectPath } from "./model";
 import type { Model } from "./model";
-import { BoardContext, closesOnLeave, controlStyle, Icon, Link, onRightClick, Select, T, Tint, useBoard } from "./parts";
+import { BoardContext, closesOnLeave, controlStyle, Icon, Link, onRightClick, Select, StatusIcon, T, Tint, useBoard } from "./parts";
 import type { Ctx, Option, Ui } from "./parts";
 import { SettingsDialog } from "./Settings";
 
@@ -34,12 +35,21 @@ export function Board({ host }: { host: Host }) {
     adding: false,
     addParent: null,
     settings: false,
+    needsDue: null,
   }));
   const [down, setDown] = useState(false); // the server is unreachable; what is shown is stale
   const [message, setMessage] = useState({ text: "", error: false });
   const [undos, setUndos] = useState<Undo[]>([]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const root = useRef<View>(null);
+  // Scrolling the list to a row: the rows on screen, the list's content, how tall its window is,
+  // and the item to bring into view once the change that shows it has rendered.
+  const rows = useRef(new Map<string, View>());
+  const scroller = useRef<ScrollView>(null);
+  const content = useRef<View>(null);
+  const seen = useRef(0);
+  const scrollTo = useRef<string | null>(null);
+  const stuck = useRef<Stuck>({ heads: [], y: 0, redraw: null });
   const sync = useRef({
     host,
     polling: false,
@@ -186,8 +196,15 @@ export function Board({ host }: { host: Host }) {
   function select(id: string | null, edit = false) {
     set((now) => {
       const item = id ? m!.byId[id] : null;
-      return { ...(item ? reveal(now, m!, item, false) : {}), selected: id, editing: Boolean(id) && edit };
+      return { ...(item ? reveal(now, m!, item, false) : {}), selected: id, editing: Boolean(id) && edit, needsDue: null };
     });
+  }
+
+  // High priority needs a due date. Without one, the editor opens on the date and
+  // saves the date and the priority together; until then nothing is written.
+  function markHigh(item: Item) {
+    if (item.due) patch(item.id, { priority: "high" });
+    else set((now) => ({ ...reveal(now, m!, item, false), selected: item.id, editing: true, needsDue: item.id }));
   }
 
   // Show an item wherever it is: switch to Global if the current tab cannot see it,
@@ -196,7 +213,35 @@ export function Board({ host }: { host: Host }) {
     set((now) => {
       const seen = m!.scopeItems(now).some((i) => i.id === item.id);
       const next: Ui = seen ? now : { ...now, tab: "global", filter: "" };
-      return { ...next, ...reveal(next, m!, item, true), selected: item.id, editing: false };
+      return { ...next, ...reveal(next, m!, item, true), selected: item.id, editing: false, needsDue: null };
+    });
+  }
+
+  // Selects the item and scrolls the list to it, a third of the way down.
+  function showInList(item: Item) {
+    scrollTo.current = item.id;
+    jumpTo(item);
+  }
+  useEffect(() => {
+    const id = scrollTo.current;
+    scrollTo.current = null;
+    const row = id && rows.current.get(id);
+    if (row && content.current) row.measureLayout(content.current, (_x, y) => scroller.current?.scrollTo({ y: Math.max(0, y - seen.current / 3), animated: true }));
+    placeHeadings();
+  });
+
+  // Where Global's headings are, for the one kept at the top: after every change, and when the
+  // list's width changes and lines may wrap. Scrolling moves none of them.
+  function placeHeadings() {
+    const box = content.current;
+    if (!box) return;
+    const heads = [...rows.current].filter(([key]) => key.startsWith("h:"));
+    const placed = heads.map(
+      ([key, view]) => new Promise<Stuck["heads"][number]>((done) => view.measureLayout(box, (x, y, _w, h) => done({ path: key.slice(2), x, bottom: y + h }))),
+    );
+    Promise.all(placed).then((at) => {
+      stuck.current.heads = at.sort((a, b) => a.bottom - b.bottom);
+      stuck.current.redraw?.();
     });
   }
 
@@ -242,10 +287,12 @@ export function Board({ host }: { host: Host }) {
   const only = ui.only && m.focus.sessions.includes(ui.only) ? ui.only : null;
   const items = m.scopeItems({ tab: ui.tab, filter, only });
   const selected = items.some((i) => i.id === ui.selected) ? ui.selected : null;
-  const shown: Ui = { ...ui, filter, only, selected, editing: Boolean(selected) && ui.editing };
+  const editing = Boolean(selected) && ui.editing;
+  const shown: Ui = { ...ui, filter, only, selected, editing, needsDue: editing && ui.needsDue === selected ? ui.needsDue : null };
   const scale = (board.settings?.text_size ?? 100) / 100; // a server from before the setting does not report it
   const scaled = (n: number) => Math.round(n * scale);
-  const ctx: Ctx = { host, c, m, ui: shown, scaled, set, patch, remove, select, jumpTo, jumpToDriver, copyTitle, openMenu };
+  const trackRow = (id: string, row: View | null) => (row ? rows.current.set(id, row) : rows.current.delete(id));
+  const ctx: Ctx = { host, c, m, ui: shown, scaled, set, patch, remove, select, jumpTo, jumpToDriver, markHigh, trackRow, copyTitle, openMenu };
   const canAdd = ui.tab === "global" ? Object.keys(board.projects).length > 0 : m.focus.projects.length > 0;
 
   return (
@@ -263,9 +310,30 @@ export function Board({ host }: { host: Host }) {
         <Header canAdd={canAdd && !down} filters={filters} />
         <View style={{ flex: 1, pointerEvents: down ? "none" : "auto" }}>
           {ui.adding && canAdd && <AddForm onAdd={add} />}
-          <ScrollView style={{ flex: 1, opacity: down ? 0.5 : 1 }} contentContainerStyle={{ paddingBottom: 8 }}>
-            <List items={items} />
-          </ScrollView>
+          <View style={{ flex: 1, opacity: down ? 0.5 : 1 }}>
+            <HighPriority onPick={showInList} />
+            <View style={{ flex: 1, overflow: "hidden" }}>
+              <ScrollView
+                ref={scroller}
+                onLayout={(e) => {
+                  seen.current = e.nativeEvent.layout.height;
+                  placeHeadings();
+                }}
+                onScroll={(e) => {
+                  stuck.current.y = e.nativeEvent.contentOffset.y;
+                  stuck.current.redraw?.();
+                }}
+                scrollEventThrottle={16}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 8 }}
+              >
+                <View ref={content}>
+                  <List items={items} />
+                </View>
+              </ScrollView>
+              <StuckHeading at={stuck} />
+            </View>
+          </View>
           <Inspector />
           {(message.text !== "" || undos.length > 0) && (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: c.border }}>
@@ -286,7 +354,7 @@ export function Board({ host }: { host: Host }) {
               ["Copy ID", () => copy(menu.item.id, `Copied the ID ${menu.item.id}`)],
               menu.item.priority === "high"
                 ? ["Mark normal priority", () => patch(menu.item.id, { priority: "normal" })]
-                : ["Mark high priority", () => patch(menu.item.id, { priority: "high" })],
+                : ["Mark high priority", () => markHigh(menu.item)],
             ]}
           />
         )}
@@ -367,6 +435,60 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
           </T>
         )}
       </View>
+    </View>
+  );
+}
+
+const HIGH_ROW = 20;
+const HIGH_SHOWN = 6; // the rest scroll inside the box, so the list keeps its room
+
+/**
+ * Above the list on every tab, staying put: every open high priority item on the board, whatever
+ * the tab shows, soonest due first. A press shows one in the list, on Global when the tab cannot.
+ */
+function HighPriority({ onPick }: { onPick: (item: Item) => void }) {
+  const { c, m, scaled } = useBoard();
+  const high = m.board.items.filter(m.high).sort((x, y) => (x.due || "").localeCompare(y.due || "") || x.created_at.localeCompare(y.created_at));
+  if (!high.length) return null;
+  return (
+    <View style={{ marginTop: 8, marginHorizontal: 8, paddingVertical: 4, paddingLeft: scaled(10), paddingRight: 8, borderRadius: 6, overflow: "hidden" }}>
+      <Tint color={c.statusDanger} opacity={0.08} />
+      <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: scaled(3), backgroundColor: c.statusDanger }} />
+      <T size={10} weight="600" color={c.statusDanger} style={{ marginBottom: 2 }}>
+        {`High priority · ${high.length}`}
+      </T>
+      <ScrollView style={{ maxHeight: scaled(HIGH_ROW) * HIGH_SHOWN }}>
+        {high.map((item) => {
+          const task = item.parent ? m.byId[item.parent] : null;
+          const due = item.due ? dueDay(item.due) : null;
+          return (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              accessibilityLabel={"Show “" + item.title + "” in the list"}
+              onPress={() => onPick(item)}
+              style={{ flexDirection: "row", alignItems: "center", gap: 5, height: scaled(HIGH_ROW) }}
+            >
+              <StatusIcon item={item} size={11} />
+              <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "baseline", gap: 5 }}>
+                <T size={11} lines={1} style={{ flexShrink: 1 }}>
+                  {item.title}
+                </T>
+                {task && (
+                  <T size={10} lines={1} color={c.foregroundMuted} style={{ flexShrink: 2 }}>
+                    {task.title}
+                  </T>
+                )}
+              </View>
+              {due && (
+                <T size={10} color={due.overdue ? c.statusDanger : c.foregroundMuted}>
+                  {due.label}
+                </T>
+              )}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }

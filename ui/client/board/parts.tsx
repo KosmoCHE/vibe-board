@@ -1,6 +1,6 @@
 // The board's shared context and the small controls its parts use.
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import type { StyleProp, TextStyle, ViewStyle } from "react-native";
@@ -19,6 +19,7 @@ export interface Ui {
   adding: boolean; // the add form is open
   addParent: string | null; // item the add form adds a step under
   settings: boolean; // the settings dialog is open
+  needsDue: string | null; // marked high in the editor, waiting for its due date before either is saved
 }
 
 export interface Ctx {
@@ -29,11 +30,16 @@ export interface Ctx {
   /** A text size, or a length that sits beside text, at the text size the user set. */
   scaled(n: number): number;
   set(change: (ui: Ui) => Partial<Ui>): void;
-  patch(id: string, fields: Partial<Item>): void;
+  /** Resolves to whether the change went through. */
+  patch(id: string, fields: Partial<Item>): Promise<boolean>;
   remove(item: Item): void;
   select(id: string | null, edit?: boolean): void;
   jumpTo(item: Item): void;
   jumpToDriver(item: Item): void;
+  /** High priority needs a due date: without one, the editor opens on it first. */
+  markHigh(item: Item): void;
+  /** Where a row is: an item's by its id, so the list can be scrolled to it; a Global heading's words by its row key, so it can stay at the top. */
+  trackRow(key: string, row: View | null): void;
   copyTitle(item: Item): void;
   /** Offer the item's menu at a point in the window. */
   openMenu(item: Item, x: number, y: number): void;
@@ -133,9 +139,8 @@ export function Icon(props: { name: IconName; size?: number; color?: string }) {
 
 /** The status icon as a checkbox: a press completes the item, or reopens a done one. */
 export function Complete({ item, size, style }: { item: Item; size?: number; style?: StyleProp<ViewStyle> }) {
-  const { c, m, patch } = useBoard();
+  const { patch } = useBoard();
   const done = item.status === "done";
-  const status = m.shownStatus(item);
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -144,9 +149,16 @@ export function Complete({ item, size, style }: { item: Item; size?: number; sty
       onPress={() => patch(item.id, { status: done ? "todo" : "done" })}
       style={style}
     >
-      <Icon name={STATUS_ICON[status]} size={size ?? 13} color={statusColor(c, status)} />
+      <StatusIcon item={item} size={size} />
     </Pressable>
   );
+}
+
+/** The icon of the status an item shows. */
+export function StatusIcon({ item, size }: { item: Item; size?: number }) {
+  const { c, m } = useBoard();
+  const status = m.shownStatus(item);
+  return <Icon name={STATUS_ICON[status]} size={size ?? 13} color={statusColor(c, status)} />;
 }
 
 /** Words to press, in the accent colour. */
@@ -305,12 +317,16 @@ export function Field(props: {
   onCommit: (value: string) => void;
   multiline?: boolean;
   placeholder?: string;
+  focus?: boolean; // take the focus when this turns true
 }) {
   const { c, scaled } = useBoard();
   const [draft, setDraft] = useState(props.value);
   const saved = useRef(props.value);
   const input = useRef<TextInput>(null);
   const cancelled = useRef(false);
+  useEffect(() => {
+    if (props.focus) input.current?.focus();
+  }, [props.focus]);
   // The saved value changed elsewhere and nothing is being typed over it: show the new one.
   if (saved.current !== props.value) {
     if (draft === saved.current) setDraft(props.value);

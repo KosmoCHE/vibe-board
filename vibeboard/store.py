@@ -252,6 +252,7 @@ def create(title: str, project: str, **fields) -> dict:
     items = load_all()
     item = dict(DEFAULTS, id=new_id(items), project=project, created_at=now(), updated_at=now())
     item.update(_validated(fields, items, creating=True))
+    _check_deadline(item)
     _stamp(item, item["status"])
     item["title"] = title.strip()
     if not item["title"]:
@@ -264,6 +265,8 @@ def update(item_id: str, **fields) -> dict:
     items = load_all()
     item = items[item_id]
     changes = _validated(fields, items, creating=False, self_id=item_id)
+    if "priority" in changes or "due" in changes:
+        _check_deadline({**item, **changes})
     old_path = _item_path(item)
     item.update(changes)
     if "status" in changes:
@@ -444,6 +447,12 @@ def _validated(fields: dict, items: dict, creating: bool, self_id: str | None = 
             value = ""
         out[key] = value
     return out
+
+
+def _check_deadline(item: dict) -> None:
+    """A high priority item has a due date: raising one means saying by when."""
+    if item["priority"] == "high" and not item["due"]:
+        raise ValueError("a high priority item needs a due date")
 
 
 # --- panes: which session runs where -------------------------------------------

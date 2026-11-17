@@ -7,11 +7,12 @@
 // off a faint trunk below the task. Details stay in the inspector. Everything is
 // positioned by arithmetic, so nothing is measured.
 
-import type { ReactNode } from "react";
+import { useEffect, useReducer } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Pressable, View } from "react-native";
 import type { ViewStyle } from "react-native";
 import type { Item } from "./host";
-import { graphFlows, graphLayers, projectPath, scopedChildren } from "./model";
+import { dueDay, graphFlows, graphLayers, projectPath, scopedChildren } from "./model";
 import type { Model } from "./model";
 import { Complete, doneStepsKey, DriverChip, Icon, Link, onRightClick, T, Tint, useBoard, useItemPress } from "./parts";
 import type { Ui } from "./parts";
@@ -552,7 +553,7 @@ const HEADING = 30;
 
 /** A project's name above its tasks on Global, in line with their dots, the lanes passing by. */
 function HeadingRow({ path, rail }: { path: string; rail: RailOf }) {
-  const { c, m, scaled } = useBoard();
+  const { c, m, scaled, trackRow } = useBoard();
   const height = scaled(HEADING);
   return (
     <View style={{ flexDirection: "row", height, paddingHorizontal: EDGE }}>
@@ -561,20 +562,66 @@ function HeadingRow({ path, rail }: { path: string; rail: RailOf }) {
           {null}
         </Rail>
       </View>
-      <View style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "baseline", alignSelf: "flex-end", gap: 6, paddingBottom: scaled(4), marginLeft: scaled(rail.col * LANE) }}>
-        <T size={10} weight="600" color={c.foregroundMuted} lines={1}>
-          {m.projectName(path)}
-        </T>
-        <T size={9} color={c.foregroundMuted} lines={1} style={{ flex: 1 }}>
-          {projectPath(path)}
-        </T>
+      <View
+        ref={(view) => trackRow("h:" + path, view)}
+        style={{ flex: 1, minWidth: 0, flexDirection: "row", alignItems: "baseline", alignSelf: "flex-end", gap: 6, paddingBottom: scaled(4), marginLeft: scaled(rail.col * LANE) }}
+      >
+        <HeadingWords path={path} />
+      </View>
+    </View>
+  );
+}
+
+function HeadingWords({ path }: { path: string }) {
+  const { c, m } = useBoard();
+  return (
+    <>
+      <T size={11} weight="600" color={c.foregroundMuted} lines={1}>
+        {m.projectName(path)}
+      </T>
+      <T size={9} color={c.foregroundMuted} lines={1} style={{ flex: 1 }}>
+        {projectPath(path)}
+      </T>
+    </>
+  );
+}
+
+/** Global's headings as the list has them, in its own coordinates, and how far it is scrolled. */
+export interface Stuck {
+  heads: { path: string; x: number; bottom: number }[]; // where each heading's words are, top to bottom
+  y: number;
+  redraw: (() => void) | null;
+}
+
+/**
+ * Over the top of the list: the heading of the project whose rows are there, once its own has
+ * scrolled under the top edge. One at a time; the next heading pushes it out as it arrives.
+ * It keeps its own state, so scrolling redraws only this.
+ */
+export function StuckHeading({ at }: { at: RefObject<Stuck> }) {
+  const { c, scaled } = useBoard();
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    at.current.redraw = redraw;
+    return () => void (at.current.redraw = null);
+  }, []);
+  const { heads, y } = at.current;
+  const height = scaled(HEADING);
+  let n = -1;
+  while (n + 1 < heads.length && heads[n + 1].bottom - height < y) n++;
+  if (n < 0) return null;
+  const next = heads[n + 1];
+  return (
+    <View style={{ position: "absolute", left: 0, right: 0, top: next ? Math.min(0, next.bottom - height - y - height) : 0, height, backgroundColor: c.surface0, borderBottomWidth: 1, borderBottomColor: c.border }}>
+      <View style={{ position: "absolute", left: heads[n].x, right: EDGE, bottom: 0, flexDirection: "row", alignItems: "baseline", gap: 6, paddingBottom: scaled(4) }}>
+        <HeadingWords path={heads[n].path} />
       </View>
     </View>
   );
 }
 
 function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf; dim: boolean }) {
-  const { c, m, ui, set, scaled, openMenu } = useBoard();
+  const { c, m, ui, set, scaled, openMenu, trackRow } = useBoard();
   const press = useItemPress(item);
   const done = item.status === "done";
   const quiet = done || item.status === "later" || m.blocked(item);
@@ -584,6 +631,7 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
   // High priority: a red wash and a bar at the panel's edge. A folded task hiding a high step
   // gets a fainter one, so the step is not missed. Both fade with the row.
   const urgent = (m.high(item) ? 1 : steps && !steps.open && m.holdsHigh(item) ? 0.45 : 0) * (dim ? 0.4 : 1);
+  const due = m.high(item) && item.due ? dueDay(item.due) : null; // by when, red once it has passed
   // Who pushes it. A Session tab of one session already says (in Paseo it holds every agent of
   // the workspace), and a step its task's driver pushes adds nothing.
   const said = (ui.tab === "session" && (ui.only !== null || m.focus.sessions.length === 1)) || (item.parent && m.byId[item.parent]?.driver === item.driver);
@@ -595,6 +643,7 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
     // Not a button: its fold arrow and session badge are buttons, and a button holds no other.
     // It still takes focus, and Enter opens the details.
     <Pressable
+      ref={(view) => trackRow(item.id, view)}
       accessibilityLabel={item.title + ", " + m.board.labels[item.status]}
       onPress={press}
       {...onRightClick((x, y) => openMenu(item, x, y))}
@@ -655,6 +704,11 @@ function ItemRow({ row, item, rail, dim }: { row: Row; item: Item; rail: RailOf;
         {steps && (
           <T size={9} color={c.foregroundMuted}>
             {`${steps.done}/${steps.total}`}
+          </T>
+        )}
+        {due && (
+          <T size={9} color={due.overdue ? c.statusDanger : c.foregroundMuted}>
+            {due.label}
           </T>
         )}
       </View>

@@ -28,8 +28,9 @@ items are yours, agents are just the ones pushing them.
 
 - **One panel, three tabs** in the iTerm2 toolbelt (View › Toolbelt › Vibe Board)
   and in the sidebar of each Paseo workspace:
-  - **Global** – everything, grouped by project under each project's name. A
-    select narrows it to one project or one session.
+  - **Global** – everything, grouped by project under each project's name; the
+    name of the project you are scrolling through stays at the top. A select
+    narrows it to one project or one session.
   - **Project** – the items of the project the focused pane's session was
     started in (a Claude Code launch directory), including those filed under
     its sub-directories, and what that session pushes wherever it is filed.
@@ -73,9 +74,16 @@ items are yours, agents are just the ones pushing them.
   not from the plan carries its `issue` or `added` mark.
 - **High priority stands out.** An item is `normal` until you mark it `high`
   in its details or from its right-click menu; agents mark one only when you
-  say so. High items come first in their level, still below what they wait
-  for, with a red wash and a red bar at the panel's edge. A task holding a
+  say so. A high item needs a due date: marking one that has none opens its
+  details on the date, and both are saved together. The date can move but
+  not be cleared while the item is high. High items come first in their
+  level, still below what they wait for, with a red wash, a red bar at the
+  panel's edge and the due date, red once it has passed. A task holding a
   high step sorts with them, and while folded it carries a fainter mark.
+  Above the list, every tab sums up all open high items on the board,
+  whatever the tab shows, soonest due first, six at a time with the rest a
+  scroll away; it stays put while the list scrolls, and a press shows that
+  item in the list, switching to Global when the tab does not hold it.
 - **Finished tasks leave the board after a week.** A task that has been done
   for longer than the set number of days is archived with its steps, so the
   board stays small and quick. The settings behind the gear at the top right

@@ -20,6 +20,19 @@ export function when(iso: string): string {
   });
 }
 
+/** A due date ("2026-12-01") as a short day, with the year only when it is not this one, and whether it has passed. */
+export function dueDay(due: string): { label: string; overdue: boolean } {
+  const [y, mo, d] = due.split("-").map(Number);
+  const now = new Date();
+  const today = [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
+  const label = new Date(y, mo - 1, d).toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: y === now.getFullYear() ? undefined : "numeric",
+  });
+  return { label, overdue: due < today };
+}
+
 const byCreation = (x: Item, y: Item) => x.created_at.localeCompare(y.created_at);
 
 /** Items grouped under their parent, or under "root" when the parent is out of scope. */

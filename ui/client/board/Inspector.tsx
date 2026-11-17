@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import type { Item, Priority, Status } from "./host";
+import type { Item, Status } from "./host";
 import { projectPath, when } from "./model";
 import { Complete, DoneFold, doneStepsKey, DriverChip, Field, Icon, Link, Select, statusColor, T, Tint, useBoard } from "./parts";
 
@@ -67,8 +67,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Editor({ item }: { item: Item }) {
-  const { m, patch } = useBoard();
+  const { c, m, ui, set, patch, markHigh } = useBoard();
   const b = m.board;
+  // Marked high without a due date: shown as high, saved once the date is in.
+  const pending = ui.needsDue === item.id;
   return (
     <>
       <Row label="Title">
@@ -86,12 +88,16 @@ function Editor({ item }: { item: Item }) {
       </Row>
       <Row label="Priority">
         <Select
-          value={item.priority}
+          value={pending ? "high" : item.priority}
           options={[
             { value: "normal", label: "Normal" },
             { value: "high", label: "High" },
           ]}
-          onChange={(priority) => patch(item.id, { priority: priority as Priority })}
+          onChange={(priority) => {
+            if (priority === "high") markHigh(item);
+            else if (pending) set(() => ({ needsDue: null }));
+            else patch(item.id, { priority: "normal" });
+          }}
         />
       </Row>
       <Row label="Driver">
@@ -104,7 +110,20 @@ function Editor({ item }: { item: Item }) {
         <Field value={item.waiting_for} onCommit={(waiting_for) => patch(item.id, { waiting_for })} />
       </Row>
       <Row label="Due">
-        <Field value={item.due || ""} placeholder="YYYY-MM-DD" onCommit={(due) => patch(item.id, { due: due || null })} />
+        <Field
+          value={item.due || ""}
+          placeholder="YYYY-MM-DD"
+          focus={pending}
+          onCommit={(due) => {
+            if (!pending) patch(item.id, { due: due || null });
+            else if (due) patch(item.id, { due, priority: "high" }).then((went) => went && set(() => ({ needsDue: null })));
+          }}
+        />
+        {pending && (
+          <T color={c.statusDanger} style={{ width: "100%" }}>
+            A high priority item needs a due date.
+          </T>
+        )}
       </Row>
     </>
   );

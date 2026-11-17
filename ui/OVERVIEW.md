@@ -12,9 +12,9 @@ iTerm2 is optional. The installer also registers a panel for iTerm2's toolbelt, 
 
 In the panel:
 
-- Global shows everything, grouped by project, and can be narrowed to one project or session. Project shows the items filed under the workspace's directory, and what its agents push wherever it is filed. Workspace shows what the workspace's agents are pushing; press an agent's name to see only its items.
+- Global shows everything, grouped by project, with the name of the project you are scrolling through kept at the top, and can be narrowed to one project or session. Project shows the items filed under the workspace's directory, and what its agents push wherever it is filed. Workspace shows what the workspace's agents are pushing; press an agent's name to see only its items.
 - Press an item's dot to tick it off. Press an item for its details, and Edit to change its title, description, status, priority, driver, next step, what it waits for, or due date. The details also add a step, copy the title and delete; right-click a row to copy its title or ID, or to mark it high priority. The `+` adds an item, and Undo takes back the last change.
-- High-priority items come first in their level, below what they wait for, with a red wash and a red bar at the panel's edge. A folded task that hides a high step shows a fainter one.
+- High-priority items need a due date: marking one that has none opens its details on the date, and both are saved together. They come first in their level, below what they wait for, with a red wash, a red bar at the panel's edge and the due date, red once it has passed. A folded task that hides a high step shows a fainter one. Above the list, every tab keeps a box of all open high-priority items on the board, soonest due first, six at a time with the rest a scroll away; press one to show it in the list, on Global when the tab does not hold it.
 - Selecting an item lights up everything upstream and downstream of it.
 - Press an agent's badge to open that agent. When its session has ended, the badge greys out and pressing it lets you hand the item to another session.
 - The gear holds two settings shared with the iTerm2 panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never).

@@ -60,9 +60,11 @@ of an item's steps means depending on the item.
 
 An item is `normal` unless the human says otherwise. Set `--priority high`
 only when the human calls something high priority or urgent, or says to do it
-first; never on your own judgement. `--priority normal` takes it back. High
-items sort first on the board and stand out, and so does a task holding a
-high step.
+first; never on your own judgement. A high item needs a deadline: pass
+`--due YYYY-MM-DD` with it, and when the human has not said by when, ask them
+rather than picking a date. The date can move but not be cleared while the
+item is high. `--priority normal` takes it back. High items sort first on the
+board and stand out, and so does a task holding a high step.
 
 ## Statuses
 
