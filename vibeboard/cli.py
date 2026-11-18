@@ -480,6 +480,9 @@ def cmd_serve(args: argparse.Namespace) -> None:
     if args.exit_with_stdin:
         threading.Thread(target=_exit_when_stdin_closes, daemon=True).start()
     threading.Thread(target=server.keep_archiving, daemon=True).start()
+    threading.Thread(
+        target=server.pane_names, daemon=True
+    ).start()  # the first listing, before a panel waits for it
     try:
         server.serve_forever()
     except KeyboardInterrupt:

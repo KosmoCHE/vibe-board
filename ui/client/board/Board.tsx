@@ -76,16 +76,20 @@ export function Board({ host }: { host: Host }) {
     }
     s.polling = true;
     try {
-      const { version, focus } = (await s.host.request("GET", "/api/version")) as { version: string; focus: string | null };
-      if (version !== s.version) {
-        setBoard((await s.host.request("GET", "/api/board")) as BoardData);
-        s.version = version;
+      // Nothing shown yet, or what is shown is not trusted: fetch the board straight away, as it
+      // carries its own version. Otherwise ask the version first, which is cheap.
+      const latest = s.version === null ? null : ((await s.host.request("GET", "/api/version")) as { version: string; focus: string | null });
+      if (!latest || latest.version !== s.version) {
+        const fresh = (await s.host.request("GET", "/api/board")) as BoardData;
+        setBoard(fresh);
+        s.version = fresh.version;
+        s.focus = fresh.focus.pane;
         setMessage((now) => (now.error ? { text: "", error: false } : now));
-      } else if (focus !== s.focus) {
+      } else if (latest.focus !== s.focus) {
         // Only the pane being looked at changed: nothing to fetch.
-        setBoard((now) => now && { ...now, focus: { pane: focus } });
+        setBoard((now) => now && { ...now, focus: { pane: latest.focus } });
+        s.focus = latest.focus;
       }
-      s.focus = focus;
       s.at = new Date();
       setDown(false);
     } catch (e) {

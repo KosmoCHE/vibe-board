@@ -56,8 +56,9 @@ class BoardServer(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", port), Handler)
         self.token = token or secrets.token_urlsafe(24)
         self.focus: str | None = None  # pane the user is looking at, pushed by the iTerm2 script
-        self._names: tuple[dict, float] = ({}, 0.0)
-        self._listing = threading.Lock()
+        self._names: tuple[dict, float] = ({}, 0.0)  # stamped 0: never listed
+        self._listing = threading.Lock()  # held while a listing runs
+        self._items: tuple[float, list] = (-1.0, [])  # the store's version, and its items then
         self._silent: set[str] = set()  # listing commands whose failure was already reported
         self.settings_changed = threading.Event()
 
@@ -79,27 +80,51 @@ class BoardServer(ThreadingHTTPServer):
         return listed
 
     def pane_names(self) -> dict[str, str]:
-        """Names of the live panes as their hosts show them, cached briefly: iTerm2's
-        sessions, and Paseo's agents once a Paseo session is on the board."""
-        with self._listing:  # every open panel asks each second: one of them does the listing
-            names, stamp = self._names
-            if time.time() - stamp < 3:
-                return names
-            names = {
-                s["id"].upper(): s.get("name") or s.get("title") or ""
-                for s in self._listed([IT2, "session", "list", "--json"])
-            }
-            if any(
-                p.get("host") == store.PASEO and not p.get("ended_at")
-                for p in store.panes().values()
-            ):
-                names.update(
-                    (a["id"].upper(), a.get("name") or "")
-                    for a in self._listed([PASEO, "ls", "--global", "--json"])
-                    if a.get("status") != "closed"
-                )
-            self._names = (names, time.time())
-            return names
+        """Names of the live panes as their hosts show them: iTerm2's sessions, and Paseo's
+        agents once a Paseo session is on the board.
+
+        Asking the hosts takes the better part of a second, and every open panel asks each
+        second. So a request gets the last listing at once, and one more than 3 seconds old
+        is renewed in the background, by one listing however many ask. Only the very first
+        listing is waited for."""
+        names, stamp = self._names
+        if not stamp:
+            with self._listing:
+                if not self._names[1]:
+                    self._names = (self._list_names(), time.time())
+            return self._names[0]
+        if time.time() - stamp >= 3 and self._listing.acquire(blocking=False):
+            threading.Thread(target=self._relist, daemon=True).start()
+        return names
+
+    def _relist(self) -> None:
+        try:
+            self._names = (self._list_names(), time.time())
+        finally:
+            self._listing.release()
+
+    def _list_names(self) -> dict[str, str]:
+        names = {
+            s["id"].upper(): s.get("name") or s.get("title") or ""
+            for s in self._listed([IT2, "session", "list", "--json"])
+        }
+        if any(
+            p.get("host") == store.PASEO and not p.get("ended_at") for p in store.panes().values()
+        ):
+            names.update(
+                (a["id"].upper(), a.get("name") or "")
+                for a in self._listed([PASEO, "ls", "--global", "--json"])
+                if a.get("status") != "closed"
+            )
+        return names
+
+    def items(self) -> list[dict]:
+        """The store's items, read again only once its version has moved: reading every file
+        takes a tenth of a second, and panels fetch the board whenever the version moves."""
+        version = store.version()
+        if self._items[0] != version:
+            self._items = (version, list(store.load_all().values()))
+        return self._items[1]
 
     def keep_archiving(self) -> None:
         """Take long-finished tasks off the board: now, hourly, and when the setting changes."""
@@ -127,7 +152,7 @@ class BoardServer(ThreadingHTTPServer):
             "focus": {"pane": self.focus},  # the panel works out what runs there
             "projects": store.projects(),
             "panes": panes,
-            "items": list(store.load_all().values()),
+            "items": self.items(),
             "statuses": store.STATUSES,
             "labels": {**LABELS, **store.config().get("labels", {})},
             "settings": {

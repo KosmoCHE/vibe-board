@@ -19,6 +19,12 @@ def board_server(tmp_path, monkeypatch):
     return server.BoardServer(0, "test-token")
 
 
+def settle(board_server):
+    """Wait for a listing under way in the background."""
+    with board_server._listing:
+        pass
+
+
 def test_rename_changes_version_without_changing_tasks_or_focus(board_server, monkeypatch):
     store.set_pane("PANE", session="session", project="/example")
     task = store.create("Work", "/example", driver="session")
@@ -43,6 +49,8 @@ def test_rename_changes_version_without_changing_tasks_or_focus(board_server, mo
     assert len(lookups) == 1
 
     clock[0] += 1
+    assert board_server.version() == before  # the old names answer while new ones are listed
+    settle(board_server)
     after = board_server.version()
     board = board_server.board()
     assert after != before
@@ -54,6 +62,8 @@ def test_rename_changes_version_without_changing_tasks_or_focus(board_server, mo
     assert len(lookups) == 2
 
     clock[0] += 3
+    assert board_server.version() == after
+    settle(board_server)
     assert board_server.version() == after  # cache expiry alone is not a change
     assert len(lookups) == 3
 
@@ -155,6 +165,41 @@ def test_panels_asking_at_once_share_one_listing(board_server, monkeypatch):
     for panel in panels:
         panel.join()
     assert asked == [server.IT2]
+
+
+def test_an_old_listing_answers_at_once_while_a_new_one_runs(board_server, monkeypatch):
+    def listing(command, **kwargs):
+        time.sleep(0.5)  # it2 takes about this long
+        return subprocess.CompletedProcess(command, 0, stdout='[{"id": "a", "name": "new"}]')
+
+    monkeypatch.setattr(server.subprocess, "run", listing)
+    board_server._names = ({"A": "old"}, time.time() - 10)
+    started = time.monotonic()
+    assert board_server.pane_names() == {"A": "old"}
+    assert board_server.pane_names() == {"A": "old"}  # one listing is under way: no second
+    assert time.monotonic() - started < 0.2
+    for _ in range(50):
+        if board_server.pane_names() == {"A": "new"}:
+            break
+        time.sleep(0.05)
+    assert board_server.pane_names() == {"A": "new"}
+
+
+def test_items_are_read_again_only_once_the_store_changes(board_server, monkeypatch):
+    monkeypatch.setattr(server.BoardServer, "pane_names", lambda self: {})
+    item = store.create("x", "/tmp/a")
+    reads = []
+    load_all = store.load_all
+    monkeypatch.setattr(
+        server.store, "load_all", lambda *a, **k: reads.append(1) or load_all(*a, **k)
+    )
+    board_server.board()
+    board_server.board()
+    assert len(reads) == 1
+    store.update(item["id"], title="y")
+    reads.clear()
+    assert [i["title"] for i in board_server.board()["items"]] == ["y"]
+    assert len(reads) == 1
 
 
 @pytest.fixture
