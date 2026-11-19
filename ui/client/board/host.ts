@@ -120,4 +120,6 @@ export interface Host {
   jump(pane: Pane): Promise<void>;
   /** Bind the host's keyboard shortcuts to the board's commands; returns the unbind. */
   shortcuts?(commands: Commands): () => void;
+  /** Show the host's own page for the settings. Absent: the board opens its settings dialog. */
+  openSettings?(): void;
 }

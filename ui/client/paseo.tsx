@@ -30,7 +30,7 @@ async function agentsIn(paseo: ReturnType<typeof usePaseo>, workspaceId: string)
   return ids;
 }
 
-export function BoardPanel({ theme, navigation, workspaceId, tab }: PluginWorkspacePanelProps) {
+export function BoardPanel({ theme, navigation, workspaceId, tab, openSettings }: PluginWorkspacePanelProps & { openSettings(): void }) {
   const call = useRpc(boardRpc);
   const paseo = usePaseo();
   const [saved, save] = useTabState<Prefs>(tab, prefs, DEFAULT_PREFS);
@@ -60,6 +60,7 @@ export function BoardPanel({ theme, navigation, workspaceId, tab }: PluginWorksp
       else if (navigation) navigation.openAgent({ agentId: pane.pane.toLowerCase() });
       else throw new Error("This Paseo client cannot open an agent from a panel");
     },
+    openSettings,
   };
   return <Board host={host} />;
 }

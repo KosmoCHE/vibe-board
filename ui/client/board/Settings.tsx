@@ -1,5 +1,6 @@
-// The settings, in a dialog over the board. The server keeps them in config.json, so
-// every panel, in iTerm2 and in Paseo, shows what one of them set.
+// The settings, in a dialog over the board where the host has no page for them (iTerm2's;
+// Paseo's is client/settings.tsx). The server keeps them in config.json, so every panel,
+// in iTerm2 and in Paseo, shows what one of them set.
 
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
@@ -42,7 +43,7 @@ export function SettingsDialog({ settings, onChange }: { settings: Settings; onC
           <Setting label="Text size">
             <Select
               value={String(settings.text_size)}
-              options={withCurrent(TEXT_SIZES, settings.text_size).map((n) => ({ value: String(n), label: `${n}%` }))}
+              options={textSizeChoices(settings.text_size)}
               onChange={(value) => onChange({ text_size: Number(value) }, `Text size set to ${value}%`)}
             />
           </Setting>
@@ -50,7 +51,7 @@ export function SettingsDialog({ settings, onChange }: { settings: Settings; onC
         <Setting label="Archive finished tasks after">
           <Select
             value={days === null ? "" : String(days)}
-            options={[...withCurrent(ARCHIVE_AFTER, days).map((n) => ({ value: String(n), label: n === 1 ? "1 day" : `${n} days` })), { value: "", label: "never" }]}
+            options={archiveChoices(days)}
             onChange={(value) => {
               const n = value ? Number(value) : null;
               onChange({ archive_after_days: n }, n === null ? "Finished tasks stay on the board" : `Finished tasks are archived after ${n} ${n === 1 ? "day" : "days"}`);
@@ -70,6 +71,16 @@ function Setting({ label, children }: { label: string; children: ReactNode }) {
       <View style={{ flexDirection: "row" }}>{children}</View>
     </View>
   );
+}
+
+/** The text sizes offered, as select options. */
+export function textSizeChoices(current: number) {
+  return withCurrent(TEXT_SIZES, current).map((n) => ({ value: String(n), label: `${n}%` }));
+}
+
+/** How long finished tasks may stay, as select options; "" is never. */
+export function archiveChoices(current: number | null) {
+  return [...withCurrent(ARCHIVE_AFTER, current).map((n) => ({ value: String(n), label: n === 1 ? "1 day" : `${n} days` })), { value: "", label: "never" }];
 }
 
 /** The offered values, plus what config.json holds when that is none of them. */

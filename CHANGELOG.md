@@ -22,6 +22,9 @@ follows [Semantic Versioning](https://semver.org/).
 - One text size for the whole panel, in the same settings dialog: a percentage
   that scales every text, icon and row together. `text_size` in `config.json`
   holds it, so the iTerm2 panel and every Paseo panel share it.
+- In Paseo the settings are a page of the plugin under Settings → Plugins →
+  Vibe Board, and the panel's gear opens that page; the iTerm2 panel keeps the
+  dialog.
 
 ### Changed
 

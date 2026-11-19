@@ -416,7 +416,7 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
           <Icon name="Plus" size={15} />
         </Pressable>
         {m.board.settings && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={() => set(() => ({ settings: true }))}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={() => (host.openSettings ? host.openSettings() : set(() => ({ settings: true })))}>
             <Icon name="Settings" size={14} />
           </Pressable>
         )}

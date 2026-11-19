@@ -17,7 +17,7 @@ In the panel:
 - High-priority items need a due date: marking one that has none opens its details on the date, and both are saved together. They come first in their level, below what they wait for, with a red wash, a red bar at the panel's edge and the due date, red once it has passed. A folded task that hides a high step shows a fainter one. Above the list, every tab keeps a box of all open high-priority items on the board, soonest due first, six at a time with the rest a scroll away; press one to show it in the list, on Global when the tab does not hold it.
 - Selecting an item lights up everything upstream and downstream of it.
 - Press an agent's badge to open that agent. When its session has ended, the badge greys out and pressing it lets you hand the item to another session.
-- The gear holds two settings shared with the iTerm2 panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never).
+- Two settings are shared with the iTerm2 panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never). They are on this plugin's page under Settings → Plugins, which the gear in the panel also opens.
 
 Agents follow the skill's rules: they write their plan as steps before starting, register anything unplanned before handling it, and say which planned step comes next once a detour is done. An agent is recognised by the Claude Code session running in it. Other agents can still run `vibeboard`, but the board records their changes as yours.
 
