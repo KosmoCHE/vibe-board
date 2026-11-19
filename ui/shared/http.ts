@@ -1,4 +1,5 @@
-// Calling the board server's JSON API, the same from a browser and from Paseo's daemon.
+// Calling the board server's JSON API: the plugin's daemon side calls it (server/board.ts)
+// and hands the reply to the panel (client/), which unwraps it.
 
 export interface Reply {
   ok: boolean;

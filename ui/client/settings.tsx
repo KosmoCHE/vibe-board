@@ -1,5 +1,5 @@
-// The settings as a page under Paseo's Settings → Plugins → Vibe Board. They stay in the
-// board server's config.json, so the iTerm2 panel, which has its own dialog, shows the same.
+// The settings as a page under Paseo's Settings → Plugins → Vibe Board. The board server
+// keeps them in config.json, so every panel shows what was set here.
 
 import { type PluginSurfaceProps, useRpc } from "@getpaseo/plugin/client";
 import { SettingsCard, SettingsSection, SettingsSelect } from "@getpaseo/plugin/client/ui";
@@ -7,7 +7,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { unwrap } from "../shared/http";
 import { boardRpc } from "../shared/rpc";
 import type { BoardData, Settings } from "./board/host";
-import { archiveChoices, textSizeChoices } from "./board/Settings";
+
+const TEXT_SIZES = [85, 100, 115, 130, 150, 175]; // percent
+const ARCHIVE_AFTER = [1, 3, 7, 14, 30, 90]; // days
 
 export function SettingsScreen(_: PluginSurfaceProps) {
   const call = useRpc(boardRpc);
@@ -50,4 +52,18 @@ export function SettingsScreen(_: PluginSurfaceProps) {
       </SettingsCard>
     </SettingsSection>
   );
+}
+
+function textSizeChoices(current: number) {
+  return withCurrent(TEXT_SIZES, current).map((n) => ({ value: String(n), label: `${n}%` }));
+}
+
+/** "" is never. */
+function archiveChoices(current: number | null) {
+  return [...withCurrent(ARCHIVE_AFTER, current).map((n) => ({ value: String(n), label: n === 1 ? "1 day" : `${n} days` })), { value: "", label: "never" }];
+}
+
+/** The offered values, plus what config.json holds when that is none of them. */
+function withCurrent(offered: number[], current: number | null): number[] {
+  return current === null || offered.includes(current) ? offered : [...offered, current].sort((x, y) => x - y);
 }

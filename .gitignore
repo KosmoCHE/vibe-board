@@ -18,5 +18,5 @@ node_modules/
 # macOS
 .DS_Store
 
-# local dev environment with the iterm2 package
+# local virtual environment
 .venv/

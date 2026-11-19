@@ -86,14 +86,14 @@ export function graphFlows(items: Item[], dependencies: Map<string, Set<string>>
   return flows;
 }
 
-/** The board as seen from where it sits: beside the focused pane, or where the host says. */
+/** The board as seen from where it sits: beside the panes the host says. */
 export function model(board: BoardData, host: Pick<Host, "beside" | "project">) {
   const byId: Record<string, Item> = Object.fromEntries(board.items.map((i) => [i.id, i]));
 
   // Project and Session follow the sessions running beside the board, newest first.
   // A pane record gets its session, project and start time together.
   const here = Object.values(board.panes)
-    .filter((p) => p.session && !p.ended_at && (host.beside ? host.beside(p) : p.pane === board.focus.pane))
+    .filter((p) => p.session && !p.ended_at && host.beside(p))
     .sort((x, y) => (y.started_at || "").localeCompare(x.started_at || ""));
   const focus = {
     sessions: [...new Set(here.map((p) => p.session!))],

@@ -18,7 +18,6 @@ export interface Ui {
   editing: boolean; // the inspector shows controls instead of text
   adding: boolean; // the add form is open
   addParent: string | null; // item the add form adds a step under
-  settings: boolean; // the settings dialog is open
   needsDue: string | null; // marked high in the editor, waiting for its due date before either is saved
 }
 
@@ -46,7 +45,7 @@ export interface Ctx {
 }
 
 /**
- * Props for a right-click. The web shells (iTerm2's web view, Paseo's Electron app) get it
+ * Props for a right-click. Paseo's Electron app gets it
  * from react-native-web, which hands onContextMenu to the DOM; React Native's types do not list it.
  */
 export function onRightClick(handler: (x: number, y: number) => void): object {

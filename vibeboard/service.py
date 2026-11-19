@@ -1,7 +1,7 @@
-"""Install the panel HTTP server as a per-user macOS LaunchAgent.
+"""Install the board server as a per-user macOS LaunchAgent.
 
-The server must outlive the iTerm API connection. launchd owns its lifetime and
-restarts it at the same URL; no agent hooks or task files are modified here.
+launchd owns its lifetime and restarts it on the same port; no agent hooks or task
+files are modified here.
 """
 
 from __future__ import annotations
@@ -28,9 +28,7 @@ LABEL = "com.github.kosmoche.vibeboard.server"
 
 def runtime_snapshot(root: Path, data: Path) -> Path:
     """Install immutable runtime files outside macOS-protected Documents folders."""
-    files = sorted(
-        [*root.glob("vibeboard/*.py"), *root.glob("ui/dist/*"), root / "iterm/vibeboard_panel.py"]
-    )
+    files = sorted(root.glob("vibeboard/*.py"))
     digest = hashlib.sha256()
     for source in files:
         digest.update(str(source.relative_to(root)).encode())
@@ -65,7 +63,7 @@ def service_config(python: str, root: Path, data: Path) -> dict:
         "RunAtLoad": True,
         "KeepAlive": True,
         "ThrottleInterval": 5,
-        "StandardOutPath": "/dev/null",  # serve's startup URL contains the token
+        "StandardOutPath": "/dev/null",  # serve prints only its address
         "StandardErrorPath": str(data / "server.log"),
     }
 
@@ -112,8 +110,8 @@ def main() -> None:
         with socket.socket() as probe:
             if probe.connect_ex(("127.0.0.1", DEFAULT_PORT)) == 0:
                 raise SystemExit(
-                    f"Port {DEFAULT_PORT} is already in use. Stop the old Vibe Board "
-                    "panel script in iTerm2's Scripts console, then retry. "
+                    f"Port {DEFAULT_PORT} is already in use by a server launchd does not "
+                    "manage, such as one an old iTerm2 panel started. Stop it, then retry. "
                     "No existing process was stopped."
                 )
     previous = path.read_bytes() if path.exists() else None

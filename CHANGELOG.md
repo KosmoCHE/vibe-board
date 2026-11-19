@@ -16,15 +16,13 @@ follows [Semantic Versioning](https://semver.org/).
   shows only what that agent pushes.
 - Finished tasks are archived with their steps once they have been done for a
   set number of days (7 by default), so the board stops re-reading them on
-  every change. The settings dialog behind the gear in the panel sets the
-  number of days or turns it off; `archive_after_days` in `config.json` holds
-  it.
-- One text size for the whole panel, in the same settings dialog: a percentage
-  that scales every text, icon and row together. `text_size` in `config.json`
-  holds it, so the iTerm2 panel and every Paseo panel share it.
-- In Paseo the settings are a page of the plugin under Settings → Plugins →
-  Vibe Board, and the panel's gear opens that page; the iTerm2 panel keeps the
-  dialog.
+  every change. The settings set the number of days or turn it off;
+  `archive_after_days` in `config.json` holds it.
+- One text size for the whole panel, in the same settings: a percentage that
+  scales every text, icon and row together. `text_size` in `config.json` holds
+  it, so every panel shares it.
+- The settings are a page of the plugin under Settings → Plugins → Vibe Board,
+  and the panel's gear opens that page.
 
 ### Changed
 
@@ -53,6 +51,17 @@ follows [Semantic Versioning](https://semver.org/).
   are gone.
 - The board keeps refreshing while a field is being edited and keeps what was
   typed, so the "updates pending" banner is gone.
+
+### Removed
+
+- iTerm2 support: the board runs in Paseo only. The last version with the
+  iTerm2 toolbelt panel is tagged `iterm2-final`. Gone with it are the panel's
+  AutoLaunch script, the web page the server served (`ui/web`, `ui/dist`),
+  recognising sessions by `ITERM_SESSION_ID` or `TERM_SESSION_ID`, session
+  names from `it2`, the `/api/focus` and `/api/jump` endpoints, and
+  `vibeboard serve --json` and `--exit-with-stdin`. Claude Code run outside
+  Paseo now edits the board as you. `install.sh` removes the iTerm2 panel an
+  earlier version installed.
 
 ### Fixed
 

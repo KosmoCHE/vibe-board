@@ -1,11 +1,11 @@
 ---
 name: vibeboard
-description: Record and update the human's todos on the Vibe Board (the progress board in iTerm2). Use whenever the user asks to add, change or look up a todo, task, step, memo or plan in any wording ("登记 todo", "记到看板", "记个备忘", "加个 task"), and on your own when you start work, hit something unplanned, get blocked, or finish a step.
+description: Record and update the human's todos on the Vibe Board (the progress board in Paseo). Use whenever the user asks to add, change or look up a todo, task, step, memo or plan in any wording ("登记 todo", "记到看板", "记个备忘", "加个 task"), and on your own when you start work, hit something unplanned, get blocked, or finish a step.
 ---
 
 # Vibe Board: the human's progress board
 
-The board in the iTerm2 toolbelt belongs to the human who runs this terminal.
+The board in Paseo's sidebar belongs to the human who runs this agent.
 Every session shares it. You update the items you push; you never keep a
 private list.
 
@@ -79,7 +79,7 @@ status, write the current result and the next action in `description` and
 smallest real prerequisites in `depends_on`. The receiving session reads this
 context before it claims the item.
 
-Your session and project are detected from the pane you run in; a background
+Your session and project are detected from the Paseo agent you run in; a background
 job is known by its own session and files new items under the current
 directory. There is nothing to configure.
 

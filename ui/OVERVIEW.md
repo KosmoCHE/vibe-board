@@ -8,7 +8,7 @@ The panel is only the view. The board, its local server and the agent integratio
 - the board server, kept running by launchd and listening only on 127.0.0.1:47431;
 - a Claude Code skill with the board's rules, and `SessionStart` and `SessionEnd` hooks in `~/.claude/settings.json` that record which session each agent runs.
 
-iTerm2 is optional. The installer also registers a panel for iTerm2's toolbelt, which shows the same board, but the server and this panel work without it. Run `./install.sh` again after updating the clone; `./install.sh --uninstall` removes all of it and keeps your items.
+Run `./install.sh` again after updating the clone; `./install.sh --uninstall` removes all of it and keeps your items. Earlier versions also had a panel for iTerm2's toolbelt; it is no longer maintained, the installer removes it, and the last version with it is tagged `iterm2-final`.
 
 In the panel:
 
@@ -17,14 +17,14 @@ In the panel:
 - High-priority items need a due date: marking one that has none opens its details on the date, and both are saved together. They come first in their level, below what they wait for, with a red wash, a red bar at the panel's edge and the due date, red once it has passed. A folded task that hides a high step shows a fainter one. Above the list, every tab keeps a box of all open high-priority items on the board, soonest due first, six at a time with the rest a scroll away; press one to show it in the list, on Global when the tab does not hold it.
 - Selecting an item lights up everything upstream and downstream of it.
 - Press an agent's badge to open that agent. When its session has ended, the badge greys out and pressing it lets you hand the item to another session.
-- Two settings are shared with the iTerm2 panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never). They are on this plugin's page under Settings → Plugins, which the gear in the panel also opens.
+- Two settings, shared by every panel: one text size for the whole panel, and how many days finished tasks stay before they are archived (seven by default, or never). They are on this plugin's page under Settings → Plugins, which the gear in the panel also opens.
 
-Agents follow the skill's rules: they write their plan as steps before starting, register anything unplanned before handling it, and say which planned step comes next once a detour is done. An agent is recognised by the Claude Code session running in it. Other agents can still run `vibeboard`, but the board records their changes as yours.
+Agents follow the skill's rules: they write their plan as steps before starting, register anything unplanned before handling it, and say which planned step comes next once a detour is done. An agent is recognised by the Claude Code session running in it. Other agents, and Claude Code outside Paseo, can still run `vibeboard`, but the board records their changes as yours.
 
 What it reads and sends:
 
 - The plugin reads the token in `~/.vibe-board/token` (or under `VIBEBOARD_HOME` when that is set) and sends every board request, with that token, to the server at 127.0.0.1:47431. It contacts nothing else.
 - It lists Paseo's agents to tell which ones belong to this workspace, opens an agent when you press its badge, and remembers each panel's tab and folded tasks.
-- The board server keeps one JSON file per item under `~/.vibe-board/projects/`, the settings in `~/.vibe-board/config.json`, and archived tasks beside the live ones. To show the names of live sessions it runs `paseo ls` and, when iTerm2 is installed, iTerm2's `it2` tool.
+- The board server keeps one JSON file per item under `~/.vibe-board/projects/`, the settings in `~/.vibe-board/config.json`, and archived tasks beside the live ones. To show the names of live sessions it runs `paseo ls`.
 
 Known limits: the board runs on macOS only, and it is at version 0.1, so its data format may still change before 1.0. When you rewind an agent in Paseo, the agent continues in a new Claude Code session and its items stay with the old one until it takes them back with `vibeboard claim`.
