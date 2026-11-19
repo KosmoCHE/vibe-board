@@ -53,11 +53,9 @@ export function BoardPanel({ theme, navigation, workspaceId, tab, openSettings }
     savePrefs: save,
     copyText,
     beside,
-    sessionTab: "Workspace",
     project: directory ?? undefined, // null while Paseo has no record of the workspace
     async jump(pane) {
-      if (pane.host !== "paseo") await request("POST", "/api/jump", { pane: pane.pane }); // an iTerm2 pane
-      else if (navigation) navigation.openAgent({ agentId: pane.pane.toLowerCase() });
+      if (navigation) navigation.openAgent({ agentId: pane.pane.toLowerCase() });
       else throw new Error("This Paseo client cannot open an agent from a panel");
     },
     openSettings,

@@ -1,9 +1,5 @@
 import io
 import json
-import os
-import pty
-import subprocess
-import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -14,9 +10,6 @@ from vibeboard import cli, store
 @pytest.fixture(autouse=True)
 def tmp_home(tmp_path, monkeypatch):
     monkeypatch.setenv("VIBEBOARD_HOME", str(tmp_path))
-    monkeypatch.delenv("ITERM_SESSION_ID", raising=False)
-    monkeypatch.delenv("TERM_SESSION_ID", raising=False)
-    monkeypatch.delenv("TMUX", raising=False)
     monkeypatch.delenv("PASEO_AGENT_ID", raising=False)
     monkeypatch.delenv("CLAUDE_JOB_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
@@ -105,13 +98,11 @@ def test_finished_tasks_leave_the_board_after_the_set_days(monkeypatch):
 
 def test_identity_follows_the_pane(monkeypatch):
     assert store.identity() == (store.ME, None)
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
     store.set_pane("ABC-123", session="s1", project="/tmp/a")
     assert store.identity() == ("s1", "/tmp/a")
     store.set_pane("ABC-123", ended_at=store.now())
     assert store.identity() == (store.ME, None)
-    monkeypatch.setenv("TMUX", "/tmp/tmux-1")
-    assert store.current_pane() is None
 
 
 def test_resolve_by_id_prefix_title_or_old_number():
@@ -174,18 +165,15 @@ def test_corrupt_item_file_loses_only_that_item(tmp_home):
     assert set(store.load_all()) == {keep["id"]}
 
 
-def test_paseo_agent_is_a_pane_without_a_terminal(monkeypatch):
+def test_hooks_record_the_session_in_its_paseo_agent(monkeypatch):
     monkeypatch.setenv("PASEO_AGENT_ID", "41deff53-1a3e")
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")  # the daemon was started in a pane
-    monkeypatch.setattr(cli, "_has_terminal", lambda: False)
 
     def feed(e):
         monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(e)))
 
     feed({"hook_event_name": "SessionStart", "session_id": "agent", "cwd": "/tmp/a"})
     cli.main(["hook"])
-    assert store.get_pane("41DEFF53-1A3E")["host"] == store.PASEO
-    assert store.get_pane("ABC-123") is None
+    assert store.get_pane("41DEFF53-1A3E")["session"] == "agent"
     assert store.identity() == ("agent", "/tmp/a")
     feed({"hook_event_name": "SessionEnd", "session_id": "agent"})
     cli.main(["hook"])
@@ -193,8 +181,7 @@ def test_paseo_agent_is_a_pane_without_a_terminal(monkeypatch):
 
 
 def test_nested_session_hands_the_pane_back(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    monkeypatch.setattr(cli, "_has_terminal", lambda: True)
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
 
     def feed(e):
         monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(e)))
@@ -213,7 +200,7 @@ def test_nested_session_hands_the_pane_back(monkeypatch):
 
 
 def test_background_job_leaves_the_launching_pane_alone(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
     store.set_pane("ABC-123", session="fg", project="/tmp/a")
     monkeypatch.setenv("CLAUDE_JOB_DIR", "/tmp/jobs/bg")
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "bg")
@@ -228,7 +215,7 @@ def test_background_job_leaves_the_launching_pane_alone(monkeypatch):
 
 
 def test_out_of_order_session_end_does_not_restore_finished_session(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
     for session in ["root", "first", "second"]:
         cli._pane_start(session, "/tmp/" + session)
     cli._pane_end("first")
@@ -239,7 +226,7 @@ def test_out_of_order_session_end_does_not_restore_finished_session(monkeypatch)
 
 
 def test_resuming_outer_session_discards_stale_inner_chain(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
     cli._pane_start("root", "/tmp/root")
     started = store.get_pane("ABC-123")["started_at"]
     for session in ["first", "second"]:
@@ -253,95 +240,6 @@ def test_resuming_outer_session_discards_stale_inner_chain(monkeypatch):
     assert store.get_pane("ABC-123") == before
     cli._pane_end("root")
     assert store.identity() == (store.ME, None)
-
-
-def test_detached_diagnostic_pty_cannot_take_over_pane(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    cli._pane_start("main", "/tmp/main")
-    before = store.get_pane("ABC-123")
-    master, slave = pty.openpty()
-    # Match diagnostic runners: PTY stdio, a new OS session, inherited iTerm ID,
-    # then a hook with piped JSON stdin. No real Claude process is started.
-    script = """
-import json, os, subprocess, sys
-assert os.isatty(0)
-event = {"hook_event_name": "SessionStart", "session_id": "diagnostic", "cwd": "/tmp/test"}
-subprocess.run([sys.executable, "-m", "vibeboard", "hook"],
-               input=json.dumps(event), text=True, capture_output=True, check=True)
-"""
-    try:
-        subprocess.run(
-            [sys.executable, "-c", script],
-            stdin=slave,
-            capture_output=True,
-            start_new_session=True,
-            check=True,
-            timeout=10,
-        )
-    finally:
-        os.close(master)
-        os.close(slave)
-    assert store.get_pane("ABC-123") == before
-
-
-def test_session_end_can_release_pane_after_losing_terminal(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    cli._pane_start("root", "/tmp/root")
-    cli._pane_start("inner", "/tmp/inner")
-    monkeypatch.setattr(cli, "_has_terminal", lambda: False)
-    monkeypatch.setattr(
-        "sys.stdin",
-        io.StringIO(
-            json.dumps(
-                {
-                    "hook_event_name": "SessionEnd",
-                    "session_id": "inner",
-                }
-            )
-        ),
-    )
-    assert cli.main(["hook"]) == 0
-    assert store.identity() == ("root", "/tmp/root")
-
-
-@pytest.mark.parametrize("terminal", ["ttys005", "??"])
-def test_detached_hook_checks_nearest_claude_terminal(monkeypatch, terminal):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    cli._pane_start("original", "/tmp/original")
-    monkeypatch.setattr(cli.os, "getppid", lambda: 101)
-    # Both hooks are detached. Only the first has an interactive Claude parent;
-    # the second belongs to a detached diagnostic launched by that parent.
-    processes = (
-        "101 100 ?? /bin/sh\n"
-        f"100 50 {terminal} /opt/homebrew/bin/claude\n"
-        "50 1 ttys005 /opt/homebrew/bin/claude\n"
-    )
-    monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout=processes),
-    )
-    event = {"hook_event_name": "SessionStart", "session_id": "new", "cwd": "/tmp/new"}
-    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(event)))
-    assert cli.main(["hook"]) == 0
-    expected = "new" if terminal == "ttys005" else "original"
-    assert store.get_pane("ABC-123")["session"] == expected
-
-
-def test_tmux_hooks_never_bind_to_inherited_iterm_pane(monkeypatch):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    cli._pane_start("original", "/tmp/original")
-    before = store.get_pane("ABC-123")
-    monkeypatch.setattr(cli, "_has_terminal", lambda: True)
-    monkeypatch.setenv("TMUX", "/tmp/tmux-test/default,123,0")
-    for pane in ["%1", "%2"]:
-        monkeypatch.setenv("TMUX_PANE", pane)
-        for event_name in ["SessionStart", "SessionEnd"]:
-            event = {"hook_event_name": event_name, "session_id": pane, "cwd": "/tmp/tmux"}
-            monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(event)))
-            assert cli.main(["hook"]) == 0
-        assert store.current_pane() is None
-        assert store.get_pane("ABC-123") == before
 
 
 def test_start_and_done_times_come_from_the_clock():
@@ -415,8 +313,7 @@ def test_description_is_free_text():
 
 
 def test_hook_records_the_pane(monkeypatch, tmp_path):
-    monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p0:abc-123")
-    monkeypatch.setattr(cli, "_has_terminal", lambda: True)
+    monkeypatch.setenv("PASEO_AGENT_ID", "abc-123")
     event = {"hook_event_name": "SessionStart", "session_id": "s1", "cwd": "/tmp/a"}
     monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(event)))
     assert cli.main(["hook"]) == 0

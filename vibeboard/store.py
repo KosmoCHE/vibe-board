@@ -5,7 +5,7 @@ Layout under VIBEBOARD_HOME (default ~/.vibe-board):
     projects/<key>/project.json       the project's real path
     projects/<key>/items/<id>.json    live items
     projects/<key>/archive/<id>.json  archived items
-    panes/<pane>.json                 which session runs in which iTerm2 pane or Paseo agent
+    panes/<pane>.json                 which session runs in which Paseo agent
     config.json                       the user's settings, absent until one is set
 
 <key> is the project path encoded the way Claude Code names ~/.claude/projects/.
@@ -27,7 +27,6 @@ STATUSES = ["todo", "doing", "waiting", "later", "done"]
 ORIGINS = ["plan", "issue", "added"]
 PRIORITIES = ["normal", "high"]
 ME = "me"
-PASEO = "paseo"  # a pane record's `host` when the pane is a Paseo agent; iTerm2 panes carry none
 ARCHIVE_AFTER_DAYS = 7  # how long a finished task stays on the board, unless config.json says
 TEXT_SIZE = 100  # percent of the panel's own text sizes, unless config.json says
 
@@ -458,25 +457,16 @@ def _check_deadline(item: dict) -> None:
 # --- panes: which session runs where -------------------------------------------
 
 
-def pane_id(raw: str) -> str:
-    """'w0t0p0:GUID' (the env var) and 'GUID' (it2, the API) name the same pane."""
-    return raw.split(":")[-1].upper()
-
-
-def in_paseo() -> bool:
-    """Paseo names the agent in the environment of every process the agent starts."""
-    return bool(os.environ.get("PASEO_AGENT_ID"))
+def pane_id(agent: str) -> str:
+    """A Paseo agent's id, in the case the store names its pane by."""
+    return agent.upper()
 
 
 def current_pane() -> str | None:
-    """The pane this process runs in, a Paseo agent or an iTerm2 session, or None when
-    that cannot be trusted."""
-    if in_paseo():  # before iTerm2's variable: the daemon may have been started from a terminal
-        return pane_id(os.environ["PASEO_AGENT_ID"])
-    if os.environ.get("TMUX"):
-        return None  # inside tmux the variable names whichever pane started the server
-    raw = os.environ.get("ITERM_SESSION_ID") or os.environ.get("TERM_SESSION_ID")
-    return pane_id(raw) if raw else None
+    """The Paseo agent this process runs in, or None outside Paseo. Paseo names the agent
+    in the environment of every process the agent starts."""
+    agent = os.environ.get("PASEO_AGENT_ID")
+    return pane_id(agent) if agent else None
 
 
 def set_pane(pane: str, **fields) -> dict:
@@ -504,7 +494,7 @@ def panes() -> dict[str, dict]:
 
 
 def background() -> bool:
-    """A background Claude Code job inherits the pane variables of the pane that launched it."""
+    """A background Claude Code job inherits the agent id of the session that launched it."""
     return bool(os.environ.get("CLAUDE_JOB_DIR"))
 
 

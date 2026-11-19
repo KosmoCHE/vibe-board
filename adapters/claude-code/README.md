@@ -6,19 +6,16 @@ Two pieces, nothing else:
   board: plan first, register the unplanned before handling it, say what comes
   next after a detour. `vibeboard instructions` prints the same text, so the
   skill is the single source.
-- **Two hooks** (`settings.json`) that record which pane a session runs in.
-  `vibeboard hook` reads the hook event from stdin: `SessionStart` maps the pane
-  to the session and its launch directory, `SessionEnd` marks it ended. It
-  never prints and never fails the session.
+- **Two hooks** (`settings.json`) that record which Paseo agent a session runs
+  in. `vibeboard hook` reads the hook event from stdin: `SessionStart` maps the
+  agent to the session and its launch directory, `SessionEnd` marks it ended.
+  It never prints and never fails the session.
 
-The pane is taken from `TERM_SESSION_ID`, the way iTerm2's own Claude Code
-integration does it. Inside tmux that variable names whichever pane started
-the server, so the hook records nothing there. A background job (`CLAUDE_JOB_DIR`
-set) inherits the variable from the pane that launched it, so the hook records
+The agent is taken from `PASEO_AGENT_ID`, which Paseo sets for every process an
+agent starts. Outside Paseo the hook records nothing, and the board records
+that session's changes as yours. A background job (`CLAUDE_JOB_DIR` set)
+inherits the variable from the agent that launched it, so the hook records
 nothing for it either; the board knows it by `CLAUDE_CODE_SESSION_ID`.
-On macOS, Claude can detach the hook process itself. Registration checks the
-nearest Claude ancestor's terminal, so an interactive session still registers
-while a detached diagnostic session cannot take over the pane it inherited.
 
 ## Install
 
@@ -31,5 +28,5 @@ ln -s "$PWD/adapters/claude-code/skills/vibeboard" ~/.claude/skills/vibeboard
 # merge settings.json into ~/.claude/settings.json, with `vibeboard` on the hook shell's PATH
 ```
 
-Start a new Claude Code session in an iTerm2 pane; the Session tab of the
-panel follows it.
+Start a new Claude Code agent in a Paseo workspace; the Workspace tab of the
+panel there follows it.

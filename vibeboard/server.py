@@ -1,7 +1,7 @@
-"""Local HTTP server: serves the panel and a small JSON API over the store.
+"""Local HTTP server: a small JSON API over the store, for the Paseo plugin.
 
-Binds to 127.0.0.1 only. Every /api request must carry the per-process token,
-which the panel reads from its own URL.
+Binds to 127.0.0.1 only. Every /api request must carry the token stored in the data
+directory, where the plugin reads it.
 """
 
 from __future__ import annotations
@@ -17,13 +17,10 @@ import threading
 import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from vibeboard import store
 
-PANEL = Path(__file__).resolve().parent.parent / "ui" / "dist"  # built by ui/web/build.mjs
-IT2 = shutil.which("it2") or "/Applications/iTerm.app/Contents/Resources/utilities/it2"
 PASEO = shutil.which("paseo") or "/Applications/Paseo.app/Contents/Resources/bin/paseo"
 LABELS = {
     "todo": "To do",
@@ -32,16 +29,15 @@ LABELS = {
     "later": "Later",
     "done": "Done",
 }
-TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript"}
 ARCHIVE_EVERY = 3600  # seconds between two looks for finished tasks to archive
 SETTINGS = {"archive_after_days": store.set_archive_after_days, "text_size": store.set_text_size}
 
 
 def note(text: str) -> None:
-    """A line on stderr for whoever started the server.
+    """A line on stderr, which launchd sends to server.log.
 
-    iTerm2 can quit and leave its AutoLaunch script, and this server under it, running
-    with nobody reading stderr. The line is lost then; the request it came from is not.
+    Started by hand, the server can outlive the terminal it prints to, leaving nobody to
+    read stderr. The line is lost then; the request it came from is not.
     """
     try:
         print(text, file=sys.stderr, flush=True)
@@ -55,16 +51,11 @@ class BoardServer(ThreadingHTTPServer):
     def __init__(self, port: int, token: str | None):
         super().__init__(("127.0.0.1", port), Handler)
         self.token = token or secrets.token_urlsafe(24)
-        self.focus: str | None = None  # pane the user is looking at, pushed by the iTerm2 script
         self._names: tuple[dict, float] = ({}, 0.0)  # stamped 0: never listed
         self._listing = threading.Lock()  # held while a listing runs
         self._items: tuple[float, list] = (-1.0, [])  # the store's version, and its items then
         self._silent: set[str] = set()  # listing commands whose failure was already reported
         self.settings_changed = threading.Event()
-
-    @property
-    def url(self) -> str:
-        return f"http://127.0.0.1:{self.server_port}/?token={self.token}"
 
     def _listed(self, command: list[str]) -> list[dict]:
         """What a host's own CLI lists, or nothing when it cannot be asked."""
@@ -80,10 +71,9 @@ class BoardServer(ThreadingHTTPServer):
         return listed
 
     def pane_names(self) -> dict[str, str]:
-        """Names of the live panes as their hosts show them: iTerm2's sessions, and Paseo's
-        agents once a Paseo session is on the board.
+        """Names of the live Paseo agents, as Paseo shows them.
 
-        Asking the hosts takes the better part of a second, and every open panel asks each
+        Asking Paseo takes the better part of a second, and every open panel asks each
         second. So a request gets the last listing at once, and one more than 3 seconds old
         is renewed in the background, by one listing however many ask. Only the very first
         listing is waited for."""
@@ -104,19 +94,11 @@ class BoardServer(ThreadingHTTPServer):
             self._listing.release()
 
     def _list_names(self) -> dict[str, str]:
-        names = {
-            s["id"].upper(): s.get("name") or s.get("title") or ""
-            for s in self._listed([IT2, "session", "list", "--json"])
+        return {
+            a["id"].upper(): a.get("name") or ""
+            for a in self._listed([PASEO, "ls", "--global", "--json"])
+            if a.get("status") != "closed"
         }
-        if any(
-            p.get("host") == store.PASEO and not p.get("ended_at") for p in store.panes().values()
-        ):
-            names.update(
-                (a["id"].upper(), a.get("name") or "")
-                for a in self._listed([PASEO, "ls", "--global", "--json"])
-                if a.get("status") != "closed"
-            )
-        return names
 
     def items(self) -> list[dict]:
         """The store's items, read again only once its version has moved: reading every file
@@ -149,7 +131,6 @@ class BoardServer(ThreadingHTTPServer):
             panes[pane] = dict(info, name=name, alive=pane in names)
         return {
             "version": self.version(),
-            "focus": {"pane": self.focus},  # the panel works out what runs there
             "projects": store.projects(),
             "panes": panes,
             "items": self.items(),
@@ -194,34 +175,15 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(length) or b"{}")
 
-    def _static(self, name: str) -> None:
-        path = (PANEL / name).resolve()
-        if PANEL not in path.parents or not path.is_file():
-            self._error(HTTPStatus.NOT_FOUND, "not found")
-            return
-        self._send(
-            HTTPStatus.OK, path.read_bytes(), TYPES.get(path.suffix, "application/octet-stream")
-        )
-
     # -- routes ----------------------------------------------------------------
 
     def do_GET(self) -> None:
         url = urlparse(self.path)
         query = parse_qs(url.query)
-        if url.path == "/":
-            self._static("index.html")
-        elif url.path.startswith("/static/"):
-            self._static(url.path[len("/static/") :])
-        elif not self._authorized(query):
+        if not self._authorized(query):
             self._error(HTTPStatus.UNAUTHORIZED, "bad token")
         elif url.path == "/api/version":
-            self._json(
-                {
-                    "version": self.server.version(),
-                    "assets": assets_version(),
-                    "focus": self.server.focus,
-                }
-            )
+            self._json({"version": self.server.version()})
         elif url.path == "/api/board":
             try:
                 self._json(self.server.board())
@@ -247,15 +209,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._json([i["id"] for i in store.archive(url.path.split("/")[3])])
             elif url.path.startswith("/api/items/") and url.path.endswith("/restore"):
                 self._json([i["id"] for i in store.archive(url.path.split("/")[3], restore=True)])
-            elif url.path == "/api/focus":
-                self.server.focus = store.pane_id(body["pane"]) if body.get("pane") else None
-                self._json({"ok": True})
-            elif url.path == "/api/jump":
-                pane = store.pane_id(body["pane"])
-                if (store.get_pane(pane) or {}).get("host") == store.PASEO:
-                    raise ValueError("this session runs in Paseo: open it from the board there")
-                subprocess.run([IT2, "session", "focus", pane], timeout=5, check=False)
-                self._json({"ok": True})
             else:
                 self._error(HTTPStatus.NOT_FOUND, "not found")
         except KeyError as e:
@@ -291,13 +244,8 @@ class Handler(BaseHTTPRequestHandler):
 DEFAULT_PORT = 47431
 
 
-def assets_version() -> float:
-    """Changes when a panel file changes, so an open page can reload itself."""
-    return max(f.stat().st_mtime for f in PANEL.iterdir() if f.is_file())
-
-
 def stored_token() -> str:
-    """One token per machine, kept on disk so restarts keep the panel URL stable."""
+    """One token per machine, kept on disk where the plugin reads it."""
     path = store.home() / "token"
     if path.is_file():
         return path.read_text(encoding="utf-8").strip()

@@ -18,20 +18,19 @@ def test_runtime_snapshot_is_self_contained_and_versioned(tmp_path):
     source = Path(__file__).resolve().parent.parent
     runtime = runtime_snapshot(source, tmp_path)
     assert (runtime / "vibeboard/server.py").is_file()
-    assert (runtime / "ui/dist/board.js").is_file()
-    assert (runtime / "iterm/vibeboard_panel.py").is_file()
     assert runtime_snapshot(source, tmp_path) == runtime
     # A damaged installed file is restored from the verified source.
-    (runtime / "ui/dist/board.js").write_text("broken")
+    (runtime / "vibeboard/server.py").write_text("broken")
     runtime_snapshot(source, tmp_path)
-    assert (runtime / "ui/dist/board.js").read_bytes() == (source / "ui/dist/board.js").read_bytes()
+    assert (runtime / "vibeboard/server.py").read_bytes() == (
+        source / "vibeboard/server.py"
+    ).read_bytes()
 
 
 def test_managed_server_has_stable_port_and_independent_lifetime():
     config = service_config("/python", Path("/repo"), Path("/data"))
     assert config["KeepAlive"] is True
     assert "--strict-port" in config["ProgramArguments"]
-    assert "--exit-with-stdin" not in config["ProgramArguments"]
     assert config["EnvironmentVariables"] == {"PYTHONPATH": "/repo", "VIBEBOARD_HOME": "/data"}
 
 

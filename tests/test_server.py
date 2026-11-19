@@ -25,10 +25,9 @@ def settle(board_server):
         pass
 
 
-def test_rename_changes_version_without_changing_tasks_or_focus(board_server, monkeypatch):
+def test_rename_changes_version_without_changing_tasks(board_server, monkeypatch):
     store.set_pane("PANE", session="session", project="/example")
     task = store.create("Work", "/example", driver="session")
-    board_server.focus = "PANE"
     clock = [100.0]
     sessions = [{"id": "pane", "name": "before"}]
     lookups = []
@@ -56,7 +55,6 @@ def test_rename_changes_version_without_changing_tasks_or_focus(board_server, mo
     assert after != before
     assert board["version"] == after
     assert board["panes"]["PANE"]["name"] == "after"
-    assert board["focus"] == {"pane": "PANE"}
     assert board["items"] == [task]
     assert store.version() == stored_version
     assert len(lookups) == 2
@@ -80,59 +78,28 @@ def test_version_ignores_session_order_but_detects_task_changes(board_server, mo
     assert board_server.version() != before
 
 
-def test_focus_switch_preserves_reassigned_task_ownership(board_server, monkeypatch):
-    store.set_pane("VOTE", session="vote", project="/example")
-    store.set_pane("OTHER", session="other", project="/example")
-    monkeypatch.setattr(board_server, "pane_names", lambda: {"VOTE": "vote-opt", "OTHER": "other"})
-    tasks = [
-        store.create(f"Task {index}", "/example", driver="vote", status=status)
-        for index, status in enumerate(["waiting"] * 2 + ["later"] * 4)
-    ]
-    other = store.create("Other task", "/example", driver="other")
-    for pane, session, expected in [
-        ("VOTE", "vote", tasks),
-        ("OTHER", "other", [other]),
-        ("UNBOUND", None, []),
-        ("VOTE", "vote", tasks),
-    ]:
-        board_server.focus = pane
-        board = board_server.board()
-        assert board["focus"] == {"pane": pane}
-        assert {i["id"] for i in board["items"] if session and i["driver"] == session} == {
-            i["id"] for i in expected
-        }
-    assert all(store.get(item["id"]) == item for item in tasks)
-
-
-def test_paseo_agents_are_listed_once_one_is_on_the_board(board_server, monkeypatch):
-    store.set_pane("ITERM", session="a", project="/example")
+def test_closed_paseo_agents_are_not_alive(board_server, monkeypatch):
     asked = []
 
     def listing(command, **kwargs):
         asked.append(command[0])
-        listed = [{"id": "iterm", "name": "shell"}]
-        if command[0] == server.PASEO:
-            listed = [
-                {"id": "agent-1", "name": "Fix it", "status": "idle"},
-                {"id": "agent-2", "name": "Old", "status": "closed"},
-            ]
+        listed = [
+            {"id": "agent-1", "name": "Fix it", "status": "idle"},
+            {"id": "agent-2", "name": "Old", "status": "closed"},
+        ]
         return subprocess.CompletedProcess(command, 0, stdout=json.dumps(listed))
 
     monkeypatch.setattr(server.subprocess, "run", listing)
-    assert board_server.pane_names() == {"ITERM": "shell"}
-    assert asked == [server.IT2]
-
-    store.set_pane("AGENT-1", host=store.PASEO, session="b", project="/example")
-    store.set_pane("AGENT-2", host=store.PASEO, session="c", project="/example")
-    board_server._names = ({}, 0.0)
+    store.set_pane("AGENT-1", session="b", project="/example")
+    store.set_pane("AGENT-2", session="c", project="/example")
     panes = board_server.board()["panes"]
     assert (panes["AGENT-1"]["name"], panes["AGENT-1"]["alive"]) == ("Fix it", True)
     assert panes["AGENT-2"]["alive"] is False
-    assert panes["ITERM"]["alive"] is True
+    assert asked == [server.PASEO]
 
 
 def test_a_listing_that_fails_with_nobody_reading_stderr_still_answers(board_server, monkeypatch):
-    # iTerm2 quit: it2 cannot reach it, and the stderr it read is gone.
+    # Paseo cannot be reached, and the terminal the server was started in is gone.
     class Gone:
         def write(self, text):
             raise BrokenPipeError(32, "Broken pipe")
@@ -164,12 +131,12 @@ def test_panels_asking_at_once_share_one_listing(board_server, monkeypatch):
         panel.start()
     for panel in panels:
         panel.join()
-    assert asked == [server.IT2]
+    assert asked == [server.PASEO]
 
 
 def test_an_old_listing_answers_at_once_while_a_new_one_runs(board_server, monkeypatch):
     def listing(command, **kwargs):
-        time.sleep(0.5)  # it2 takes about this long
+        time.sleep(0.5)  # paseo ls takes about this long
         return subprocess.CompletedProcess(command, 0, stdout='[{"id": "a", "name": "new"}]')
 
     monkeypatch.setattr(server.subprocess, "run", listing)
@@ -221,19 +188,6 @@ def live(tmp_path, monkeypatch):
     yield board, call
     board.shutdown()
     board.server_close()
-
-
-def test_jump_refuses_a_paseo_agent(live, monkeypatch):
-    _, call = live
-    store.set_pane("AGENT-1", host=store.PASEO, session="b", project="/example")
-    focused = []
-    monkeypatch.setattr(server.subprocess, "run", lambda command, **kwargs: focused.append(command))
-    with pytest.raises(urllib.error.HTTPError) as refused:
-        call("POST", "/api/jump", {"pane": "agent-1"})
-    assert refused.value.code == 400
-    assert focused == []
-    assert call("POST", "/api/jump", {"pane": "iterm"}) == {"ok": True}
-    assert focused == [[server.IT2, "session", "focus", "ITERM"]]
 
 
 def test_settings_are_read_and_changed_over_the_api(live, tmp_path, monkeypatch):

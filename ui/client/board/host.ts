@@ -1,6 +1,5 @@
 // What the board needs from the place it runs in. The board itself imports only
-// react and react-native; iTerm2's web view (web/) and Paseo (client/paseo.tsx)
-// each supply one Host.
+// react and react-native; Paseo supplies the Host in client/paseo.tsx.
 
 import type { ComponentType } from "react";
 
@@ -28,10 +27,9 @@ export interface Item {
   done_at: string | null;
 }
 
-/** Where a session runs: an iTerm2 pane or a Paseo agent. */
+/** Where a session runs: a Paseo agent. */
 export interface Pane {
   pane: string;
-  host?: string; // "paseo" for a Paseo agent, absent for an iTerm2 pane
   session?: string;
   project?: string;
   started_at?: string;
@@ -43,7 +41,6 @@ export interface Pane {
 /** GET /api/board */
 export interface BoardData {
   version: string;
-  focus: { pane: string | null };
   projects: Record<string, { name: string; path: string }>;
   panes: Record<string, Pane>;
   items: Item[];
@@ -93,11 +90,6 @@ export type Prefs = {
 
 export const DEFAULT_PREFS: Prefs = { tab: "global", open: {} };
 
-export interface Commands {
-  undo(): void;
-  escape(): void;
-}
-
 export interface Host {
   /** Call the board server's JSON API. Rejects with the server's message. */
   request(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<unknown>;
@@ -107,19 +99,12 @@ export interface Host {
   prefs: Prefs;
   savePrefs(prefs: Prefs): void;
   copyText(text: string): Promise<void>;
-  /**
-   * Is this a pane the board sits beside? Project and Session show what runs in those.
-   * Absent: the one pane the server reports as focused.
-   */
-  beside?(pane: Pane): boolean;
-  /** What the Session tab is called. Paseo's holds every agent of the workspace. Absent: "Session". */
-  sessionTab?: string;
+  /** Is this a pane the board sits beside? Project and Workspace show what runs in those. */
+  beside(pane: Pane): boolean;
   /** The directory the board itself sits in, when the host has one: Project shows it before any session runs there. */
   project?: string;
   /** Bring the user to a live pane. */
   jump(pane: Pane): Promise<void>;
-  /** Bind the host's keyboard shortcuts to the board's commands; returns the unbind. */
-  shortcuts?(commands: Commands): () => void;
-  /** Show the host's own page for the settings. Absent: the board opens its settings dialog. */
-  openSettings?(): void;
+  /** Show the page with the board's settings. */
+  openSettings(): void;
 }

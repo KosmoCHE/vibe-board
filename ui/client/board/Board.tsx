@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { BoardData, Host, Item, Settings, Tab } from "./host";
+import type { BoardData, Host, Item, Tab } from "./host";
 import { Inspector } from "./Inspector";
 import { lasting, List, reveal, StuckHeading } from "./List";
 import type { Stuck } from "./List";
@@ -10,13 +10,12 @@ import { dueDay, model, projectPath } from "./model";
 import type { Model } from "./model";
 import { BoardContext, closesOnLeave, controlStyle, Icon, Link, onRightClick, Select, StatusIcon, T, Tint, useBoard } from "./parts";
 import type { Ctx, Option, Ui } from "./parts";
-import { SettingsDialog } from "./Settings";
 
 const UNDO_DEPTH = 20;
 const TABS: [Tab, string][] = [
   ["global", "Global"],
   ["project", "Project"],
-  ["session", "Session"],
+  ["session", "Workspace"], // every agent of the workspace
 ];
 
 type Undo = { id: string; title: string } & ({ fields: Partial<Item> } | { restore: true });
@@ -34,7 +33,6 @@ export function Board({ host }: { host: Host }) {
     editing: false,
     adding: false,
     addParent: null,
-    settings: false,
     needsDue: null,
   }));
   const [down, setDown] = useState(false); // the server is unreachable; what is shown is stale
@@ -55,7 +53,6 @@ export function Board({ host }: { host: Host }) {
     polling: false,
     again: false, // a change landed while a poll was under way
     version: null as string | null, // of the board that is shown; null: fetch it whatever the server says
-    focus: undefined as string | null | undefined,
     at: null as Date | null,
   });
   sync.current.host = host;
@@ -78,17 +75,12 @@ export function Board({ host }: { host: Host }) {
     try {
       // Nothing shown yet, or what is shown is not trusted: fetch the board straight away, as it
       // carries its own version. Otherwise ask the version first, which is cheap.
-      const latest = s.version === null ? null : ((await s.host.request("GET", "/api/version")) as { version: string; focus: string | null });
+      const latest = s.version === null ? null : ((await s.host.request("GET", "/api/version")) as { version: string });
       if (!latest || latest.version !== s.version) {
         const fresh = (await s.host.request("GET", "/api/board")) as BoardData;
         setBoard(fresh);
         s.version = fresh.version;
-        s.focus = fresh.focus.pane;
         setMessage((now) => (now.error ? { text: "", error: false } : now));
-      } else if (latest.focus !== s.focus) {
-        // Only the pane being looked at changed: nothing to fetch.
-        setBoard((now) => now && { ...now, focus: { pane: latest.focus } });
-        s.focus = latest.focus;
       }
       s.at = new Date();
       setDown(false);
@@ -191,10 +183,6 @@ export function Board({ host }: { host: Host }) {
     });
   }
 
-  function changeSetting(change: Partial<Settings>, said: string) {
-    return write("PATCH", "/api/settings", change, () => notice(said));
-  }
-
   const set: Ctx["set"] = (changeOf) => setUi((now) => ({ ...now, ...changeOf(now) }));
 
   function select(id: string | null, edit = false) {
@@ -263,18 +251,6 @@ export function Board({ host }: { host: Host }) {
   function openMenu(item: Item, x: number, y: number) {
     root.current?.measureInWindow((left, top, width, height) => setMenu({ item, x: x - left, y: y - top, width, height }));
   }
-
-  const commands = useRef({ undo, escape() {} });
-  commands.current = {
-    undo,
-    escape() {
-      if (ui.selected) select(ui.editing ? ui.selected : null);
-    },
-  };
-  useEffect(
-    () => host.shortcuts?.({ undo: () => commands.current.undo(), escape: () => commands.current.escape() }),
-    [],
-  );
 
   const c = host.colors;
   if (!board || !m) {
@@ -348,7 +324,6 @@ export function Board({ host }: { host: Host }) {
             </View>
           )}
         </View>
-        {ui.settings && board.settings && <SettingsDialog settings={board.settings} onChange={changeSetting} />}
         {menu && (
           <Menu
             at={menu}
@@ -401,7 +376,7 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
               style={{ flex: 1, alignItems: "center", paddingVertical: 2, borderRadius: 5, backgroundColor: ui.tab === tab ? c.surface0 : undefined }}
             >
               <T size={12} weight="500" color={ui.tab === tab ? c.foreground : c.foregroundMuted}>
-                {tab === "session" ? (host.sessionTab ?? label) : label}
+                {label}
               </T>
             </Pressable>
           ))}
@@ -416,7 +391,7 @@ function Header({ canAdd, filters }: { canAdd: boolean; filters: Option[] }) {
           <Icon name="Plus" size={15} />
         </Pressable>
         {m.board.settings && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={() => (host.openSettings ? host.openSettings() : set(() => ({ settings: true })))}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Settings" onPress={host.openSettings}>
             <Icon name="Settings" size={14} />
           </Pressable>
         )}

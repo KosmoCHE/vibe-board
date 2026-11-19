@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import threading
 from collections import defaultdict
@@ -40,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="vibeboard", description="Progress board in the iTerm2 toolbelt."
+        prog="vibeboard", description="Progress board you share with your coding agents."
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -109,18 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     hk.set_defaults(func=cmd_hook)
 
-    sv = sub.add_parser("serve", help="run the panel server")
+    sv = sub.add_parser("serve", help="run the board server")
     sv.add_argument("--port", type=int, default=None, help="default 47431, any free port if taken")
     sv.add_argument("--token", help="default: the one stored in the data directory")
     sv.add_argument("--strict-port", action="store_true", help="fail if the requested port is busy")
-    sv.add_argument(
-        "--json", action="store_true", help="print one JSON line with the url, then serve"
-    )
-    sv.add_argument(
-        "--exit-with-stdin",
-        action="store_true",
-        help="stop when stdin closes, so a launcher that dies takes the server with it",
-    )
     sv.set_defaults(func=cmd_serve)
 
     mg = sub.add_parser("migrate", help="update data written by an earlier version")
@@ -312,7 +303,7 @@ def cmd_pane_end(args: argparse.Namespace) -> None:
 
 def _pane_start(session: str, project: str) -> None:
     pane = store.current_pane()
-    if not pane:  # outside iTerm2 and Paseo, or inside tmux, there is nothing trustworthy to record
+    if not pane:  # outside Paseo there is nothing trustworthy to record
         return
     info = store.get_pane(pane) or {}
     outer = info.get("outer") or []
@@ -329,7 +320,6 @@ def _pane_start(session: str, project: str) -> None:
     same = info.get("session") == session
     store.set_pane(
         pane,
-        **({"host": store.PASEO} if store.in_paseo() else {}),
         session=session,
         project=os.path.abspath(project),
         started_at=(info.get("started_at") if same else None) or store.now(),
@@ -367,46 +357,10 @@ def cmd_hook(args: argparse.Namespace) -> None:
     _hook_log(event)
     if store.background():  # the pane it inherited belongs to the session that launched it
         return
-    # A Paseo agent has no terminal by design; in iTerm2 a session without one is detached.
-    interactive = store.in_paseo() or _has_terminal()
-    if event.get("hook_event_name") == "SessionStart" and event.get("cwd") and interactive:
+    if event.get("hook_event_name") == "SessionStart" and event.get("cwd"):
         _pane_start(session, _project_dir(event))
     elif event.get("hook_event_name") == "SessionEnd":
         _pane_end(session)
-
-
-def _has_terminal() -> bool:
-    # Claude can detach the hook itself. Check the nearest Claude process, not
-    # an outer interactive session that may have launched a detached diagnostic.
-    try:
-        result = subprocess.run(
-            ["ps", "-axo", "pid=,ppid=,tty=,comm="],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=2,
-        )
-        processes = {}
-        for line in result.stdout.splitlines():
-            fields = line.split(None, 3)
-            if len(fields) == 4:
-                pid, parent, tty, command = fields
-                processes[int(pid)] = (int(parent), tty, command)
-        pid = os.getppid()
-        while pid > 1 and pid in processes:
-            parent, tty, command = processes[pid]
-            if os.path.basename(command) == "claude":
-                return tty not in ("?", "??", "-")
-            pid = parent
-    except (OSError, subprocess.SubprocessError):
-        pass
-    # Direct hook invocations still work in a terminal. JSON stdin is piped.
-    try:
-        fd = os.open("/dev/tty", os.O_RDONLY | os.O_NOCTTY)
-    except OSError:
-        return False
-    os.close(fd)
-    return True
 
 
 def _hook_log(event: dict) -> None:
@@ -470,15 +424,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
         strict_port=args.strict_port,
         **{k: v for k, v in (("port", args.port), ("token", args.token)) if v is not None},
     )
-    if args.json:
-        print(
-            json.dumps({"url": server.url, "port": server.server_port, "token": server.token}),
-            flush=True,
-        )
-    else:
-        print(f"vibeboard panel: {server.url}", flush=True)
-    if args.exit_with_stdin:
-        threading.Thread(target=_exit_when_stdin_closes, daemon=True).start()
+    print(f"vibeboard server: http://127.0.0.1:{server.server_port}", flush=True)
     threading.Thread(target=server.keep_archiving, daemon=True).start()
     threading.Thread(
         target=server.pane_names, daemon=True
@@ -487,11 +433,6 @@ def cmd_serve(args: argparse.Namespace) -> None:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
-
-
-def _exit_when_stdin_closes() -> None:
-    sys.stdin.read()  # blocks until the other end goes away, even by kill -9
-    os._exit(0)
 
 
 if __name__ == "__main__":

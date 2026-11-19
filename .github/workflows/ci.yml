@@ -18,6 +18,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm ci && npm run typecheck && npm run build
+      - run: npm ci && npm run typecheck
         working-directory: ui
-      - run: git diff --exit-code ui/dist

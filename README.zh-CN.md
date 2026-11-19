@@ -1,17 +1,18 @@
 # vibe-board
 
-住在 iTerm2 侧栏和 Paseo 侧栏里的进度看板，以人为中心，你和你跑着的每个 AI coding agent 一起维护。
+住在 Paseo 侧栏里的进度看板，以人为中心，你和你跑着的每个 AI coding agent 一起维护。
 
 > **状态：0.1，早期。**面板、`vibeboard` 命令行、Claude Code 适配层和 `install.sh` 都能从 clone 里跑起来；1.0 之前数据格式还可能改。
+
+> **不再支持 iTerm2。**带 iTerm2 侧栏面板的最后一个版本打了 tag [`iterm2-final`](https://github.com/KosmoCHE/vibe-board/releases/tag/iterm2-final)；还想用那个面板，就 checkout 这个 tag，在那里运行 `./install.sh`。
 
 [English](README.md)
 
 ## 断线与恢复
 
 安装器会用当前用户的 macOS LaunchAgent 托管本地数据服务。它仅监听
-`127.0.0.1:47431`，不依赖 Codex 会话或 iTerm Python API 连接的寿命；服务异常退出后
-由 launchd 自动重启，继续使用原端口和认证 token。iTerm AutoLaunch 脚本负责注册侧栏
-和同步当前窗格，任务数据仍保存在 `~/.vibe-board/`。
+`127.0.0.1:47431`，不依赖任何 agent 会话的寿命；服务异常退出后
+由 launchd 自动重启，继续使用原端口和认证 token。任务数据保存在 `~/.vibe-board/`。
 服务使用 `~/.vibe-board/runtime/` 下按内容版本保存的运行文件，避免后台进程
 受 `Documents` 目录访问限制影响；`runtime/current` 指向已通过健康检查的版本。
 每个版本的 `source.json` 记录来源目录和内容摘要，不包含凭证。
@@ -29,17 +30,17 @@
 python3 -m vibeboard.service
 ```
 
-若提示端口占用，先在 iTerm2 的 Scripts 控制台停止旧的 `vibeboard_panel.py`，再执行。
-安装器不会杀死占用端口的未知进程。随后重新运行新版 AutoLaunch 脚本，以恢复窗格跟随。
+若提示端口占用，先停掉占用端口的进程再执行；旧版 iTerm2 面板起的服务也会占着它，
+重跑 `./install.sh` 会连旧面板一起清掉。安装器不会杀死占用端口的未知进程。
 LaunchAgent 位于 `~/Library/LaunchAgents/com.github.kosmoche.vibeboard.server.plist`，
 故障日志在 `~/.vibe-board/server.log`。单独卸载服务用
 `python3 -m vibeboard.service --uninstall`；完整卸载也会移除它，保留任务数据。
 
 ## 为什么
 
-同时开好几个 Claude Code 会话时，iTerm2 自带的 Session Status 能告诉你哪个 pane 在跑、在等、闲着。它回答不了的是：
+同时开好几个 Claude Code agent 时，Paseo 能告诉你哪个 agent 在跑、在等、闲着。它回答不了的是：
 
-- **我**要做什么，每件事是哪个 pane 在推？
+- **我**要做什么，每件事是哪个 agent 在推？
 - 哪些是原计划里的，哪些是半路冒出来的？
 - 现在有哪些事在等我？
 
@@ -47,13 +48,11 @@ agent 那一侧的任务清单（Claude Code 自带的 `TaskCreate`，以及大�
 
 ## 做什么
 
-- **一个面板三页**，在 iTerm2 侧栏（View › Toolbelt › Vibe Board），以及 Paseo 里每个工作区的侧栏：
+- **一个面板三页**，在 Paseo 里每个工作区的侧栏：
   - **Global**：所有的事，按项目分组，每组上面写着项目名，往下滚时当前项目的名字停在顶部；一个筛选框可以只看一个项目或一个 session。
-  - **Project**：聚焦 pane 里的会话所在项目的事（按 Claude Code 启动目录算），子目录下登记的事也算在内；这个会话推进的事，登记在别处也算。
-  - **Session**：聚焦 pane 里的会话正在推的事。
-
-  Project 和 Session 绑定你点进的 pane，和 iTerm2 的 Notes 一样；在 Paseo 里覆盖面板所在工作区的所有 agent，Session 在那里叫 Workspace，点顶部某个 agent 的名字就只看它推进的事。
-- **一个能看出谁等谁的列表**，按 git graph 画提交历史的方式来画。每件事一行，前置在上、等它的在下；每件事一个圆点，每条依赖一条轨道，在等它的那件事上带一个箭头：几件事等同一件就分叉，一件事等几件就汇合，跨 task 也一样。task 的步骤从它下方一条淡色主干上分出来，依赖线不会挪动圆点。同一列上下紧挨着的两项直接竖着连。别的依赖线里，要经过别的 task、或从 task 出发越过它自己步骤的，画在圆点左边的一栏里，Global 里每个项目分组各用各的；剩下的画在圆点右边。选中一件事会点亮它上游和下游的全部链路。折叠项的依赖保留为虚线轨道，范围外的前置用 ↗ 标记。依赖的任意一端完成后，这条线就不再画。已完成的默认折叠。每行显示标题、状态、步骤计数和推进它的会话；登记它的是另一个会话时，也显示是谁登记的。其余点一下看详情。折叠状态会记住，网页外壳的图标使用随项目提供的 Lucide 子集。
+  - **Project**：登记在工作区目录、或这个工作区的 agent 启动目录下的事，子目录下登记的也算在内；这些 agent 推进的事，登记在别处也算。
+  - **Workspace**：这个工作区的 agent 正在推的事；点顶部某个 agent 的名字就只看它推进的事。
+- **一个能看出谁等谁的列表**，按 git graph 画提交历史的方式来画。每件事一行，前置在上、等它的在下；每件事一个圆点，每条依赖一条轨道，在等它的那件事上带一个箭头：几件事等同一件就分叉，一件事等几件就汇合，跨 task 也一样。task 的步骤从它下方一条淡色主干上分出来，依赖线不会挪动圆点。同一列上下紧挨着的两项直接竖着连。别的依赖线里，要经过别的 task、或从 task 出发越过它自己步骤的，画在圆点左边的一栏里，Global 里每个项目分组各用各的；剩下的画在圆点右边。选中一件事会点亮它上游和下游的全部链路。折叠项的依赖保留为虚线轨道，范围外的前置用 ↗ 标记。依赖的任意一端完成后，这条线就不再画。已完成的默认折叠。每行显示标题、状态、步骤计数和推进它的会话；登记它的是另一个会话时，也显示是谁登记的。其余点一下看详情。折叠状态会记住。
 - **每件事记**：状态（`todo`、`doing`、`waiting`、`later`、`done`）、优先级（`normal` 或 `high`）、推进者（哪个 session 在推，也可以没有）、来源、谁建的、子步骤、依赖（可跨项目）、下一步、在等谁、日期。
 - **来源说的是这件事为什么存在**，事情堆起来时原计划仍然看得见：
   - `plan`：动手前写下的；
@@ -62,48 +61,40 @@ agent 那一侧的任务清单（Claude Code 自带的 `TaskCreate`，以及大�
 
   task 那一行显示 `2/4`：直接子步骤的「做完/总数」。不在原计划里的事，行尾带 `issue` 或 `added` 标记。
 - **高优一眼看得到**：每件事默认 `normal`，在详情里或右键菜单里可以标成 `high`；agent 只在你明确说了才标。高优必须有截止日期：没有日期时标高优，会打开详情停在日期上，填好后高优和日期一起保存；高优期间日期只能改，不能清空。高优的事排在同一层最前面（仍在它等的前置下面），整行带一层淡红底，面板最左边有一条红色竖条，行尾显示截止日期，过期变红。task 下面有高优步骤时，这个 task 也跟高优的排在一起，折叠时带一层更淡的标记。每一页的列表上方固定有一块高优汇总，按截止日期从早到晚列出整个看板上没做完的高优事项，不随当前页面的范围和筛选变化，最多显示 6 条，多的在框里滚动；列表滚动时它不动。点一条就跳到列表里的那一行，当前页面没有这件事时切到 Global。
-- **做完的任务一周后离开看板**：任务完成超过设定的天数，就连同步骤一起归档，看板保持小而快。右上角齿轮打开的设置里可以改天数，或者设成从不归档。归档里什么都留着，包括完成时间：`vibeboard list --archived` 查看，`vibeboard archive --restore <id>` 取回。
-- **字号一处调**：同一个设置里有文字大小，一个百分比管整块面板的文字、图标和行高，iTerm2 和 Paseo 里的面板一起变。
-- **你在面板里改**：点圆点勾掉、点一下看详情（加步骤、复制标题、删除都在详情里；右键一行可复制标题或 ID，或标成高优）、连点两下改、右上角 `+` 新增、Undo 撤销（iTerm2 里也可以 ⌘Z）。点会话标记跳到那个 pane 或 agent；会话结束标记变灰，事可以交给别的会话。
-- **agent 用 `vibeboard` 命令行改**。`vibeboard instructions` 打印规则：动手前把计划写成子步骤；计划外的事先登记再处理；绕路结束后说一句下一条计划是什么。会话靠它所在的 pane 或 Paseo agent 识别。
-- **Claude Code 适配层**：一个装着这些规则的 skill，加两个 hook（`SessionStart`、`SessionEnd`）把 pane 对应到会话。见 [adapters/claude-code](adapters/claude-code/README.md)。
+- **做完的任务一周后离开看板**：任务完成超过设定的天数，就连同步骤一起归档，看板保持小而快。插件的设置页（Settings › Plugins › Vibe Board，右上角齿轮也能打开）里可以改天数，或者设成从不归档。归档里什么都留着，包括完成时间：`vibeboard list --archived` 查看，`vibeboard archive --restore <id>` 取回。
+- **字号一处调**：同一个设置里有文字大小，一个百分比管整块面板的文字、图标和行高，所有面板一起变。
+- **你在面板里改**：点圆点勾掉、点一下看详情（加步骤、复制标题、删除都在详情里；右键一行可复制标题或 ID，或标成高优）、连点两下改、右上角 `+` 新增、Undo 撤销。点会话标记打开那个 agent；会话结束标记变灰，事可以交给别的会话。
+- **agent 用 `vibeboard` 命令行改**。`vibeboard instructions` 打印规则：动手前把计划写成子步骤；计划外的事先登记再处理；绕路结束后说一句下一条计划是什么。会话靠它所在的 Paseo agent 识别；在 Paseo 之外改的，看板记成你本人改的。
+- **Claude Code 适配层**：一个装着这些规则的 skill，加两个 hook（`SessionStart`、`SessionEnd`）把 Paseo agent 对应到会话。见 [adapters/claude-code](adapters/claude-code/README.md)。
 
 ## 试一下
 
 ```sh
 git clone https://github.com/KosmoCHE/vibe-board && cd vibe-board
 ./install.sh
-```
-
-它把 `vibeboard` 启动器放进 `~/.vibe-board/bin/`（并加进 PATH），链接 Claude Code 的 skill 和 hook，把面板注册为 iTerm2 的 AutoLaunch 脚本。然后在 View › Toolbelt › Vibe Board 打开它。`git pull` 之后重跑一次；`./install.sh --uninstall` 全部撤掉。
-
-### 在 Paseo 里
-
-```sh
 paseo plugin install "$PWD/ui"
 ```
 
-打开 Settings › Plugins › Enable plugins，然后打开工作区的 Explorer 侧栏，在它的 `+` 里加上 Vibe Board。插件读的是同一个本地服务，所以先跑 `./install.sh`。
+`install.sh` 把 `vibeboard` 启动器放进 `~/.vibe-board/bin/`（并加进 PATH），链接 Claude Code 的 skill 和 hook，交给 launchd 保持看板服务运行；旧版装过的 iTerm2 面板也会顺手清掉。`git pull` 之后重跑一次；`./install.sh --uninstall` 全部撤掉。
 
-数据在 `~/.vibe-board/`：每件事一个 JSON 文件，放在 `projects/<key>/items/` 下，另有一张 pane 到会话的小表。设 `VIBEBOARD_HOME` 可以换目录。
+在 Paseo 里打开 Settings › Plugins › Enable plugins，然后打开工作区的 Explorer 侧栏，在它的 `+` 里加上 Vibe Board。
+
+数据在 `~/.vibe-board/`：每件事一个 JSON 文件，放在 `projects/<key>/items/` 下，另有一张 Paseo agent 到会话的小表。设 `VIBEBOARD_HOME` 可以换目录。
 
 ## 要求
 
 - macOS；看板服务由 launchd 保持运行。
 - 命令行和看板服务要 Python 3.9 以上，Xcode 命令行工具自带的那个就够。
-- iTerm2 3.5 以上，只在要把面板放进 iTerm2 时需要：开启 Python API（Settings › General › Magic），并装好它的 Python 运行时（Scripts › Manage › Install Python Runtime），面板脚本靠它跑。
+- Paseo 0.14 以上。
 - Claude Code（第一个 agent 适配层）。
-- Paseo 0.14 以上，只在要把面板放进 Paseo 时需要。
 
 ## 目录
 
 ```
-vibeboard/               Python 包：存储、命令行、本地 HTTP 服务（只用标准库）
-ui/                   面板，用 React Native 只写一份，同时是一个 Paseo 插件：
-  client/board/       看板本身，只通过 host.ts 接触它所在的宿主
-  web/、dist/         给 iTerm2 网页视图用的外壳和提交进仓库的构建产物
-  client/paseo.tsx、server/、shared/、index.*   给 Paseo 用的外壳
-iterm/                注册面板的 iTerm2 AutoLaunch 脚本
+vibeboard/            Python 包：存储、命令行、本地 HTTP 服务（只用标准库）
+ui/                   面板，一个用 React Native 写的 Paseo 插件：
+  client/board/       看板本身，只通过 host.ts 接触 Paseo
+  client/paseo.tsx、client/settings.tsx、server/、shared/、index.*   包在外面的插件部分
 adapters/claude-code/ Claude Code 的 skill 和 hook
 tests/                pytest，只测核心逻辑
 install.sh            把上面这些链接到位
@@ -111,4 +102,4 @@ install.sh            把上面这些链接到位
 
 ## 许可证
 
-GPL-2.0-or-later。面板通过 `iterm2` Python 包注册，那个包是 GPLv2+，整个项目跟它一致。
+GPL-2.0-or-later。
