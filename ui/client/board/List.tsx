@@ -108,8 +108,9 @@ function plan(items: Item[], ui: Ui, m: Model) {
   let anyOpen = false;
   // Tasks that depend on each other stay together, each below what it waits for.
   const ordered = graphFlows(tasks, taskDeps).flatMap(({ layers, unresolved }) => [...layers.flat(), ...unresolved]);
-  // Global names each project once, above its tasks, instead of on every task.
-  const grouped = ui.tab === "global";
+  // Global names each project once, above its tasks, instead of on every task. So does Project
+  // when its tasks come from more than one: its sub-directories', or those filed elsewhere.
+  const grouped = ui.tab === "global" || (ui.tab === "project" && new Set((kids.root || []).map((task) => task.project)).size > 1);
   let heading: string | null = null;
   for (const task of grouped ? byProject(ordered, taskDeps) : ordered) {
     if (grouped && task.project !== heading) {

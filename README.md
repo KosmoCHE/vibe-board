@@ -35,7 +35,8 @@ items are yours, agents are just the ones pushing them.
     narrows it to one project or one session.
   - **Project** – the items filed under the workspace's directory or where its
     agents were started, including those filed under sub-directories, and what
-    those agents push wherever it is filed.
+    those agents push wherever it is filed. When they come from more than one
+    project, they are grouped by project the way Global groups them.
   - **Workspace** – the items the workspace's agents are pushing; press one
     agent's name at its top to show only what that agent pushes.
 - **One list that shows what waits for what**, drawn the way a git graph draws
