@@ -54,6 +54,7 @@ class BoardServer(ThreadingHTTPServer):
         self._names: tuple[dict, float] = ({}, 0.0)  # stamped 0: never listed
         self._listing = threading.Lock()  # held while a listing runs
         self._items: tuple[float, list] = (-1.0, [])  # the store's version, and its items then
+        self._reading = threading.Lock()  # panels that ask together read the files once
         self._silent: set[str] = set()  # listing commands whose failure was already reported
         self.settings_changed = threading.Event()
 
@@ -104,9 +105,10 @@ class BoardServer(ThreadingHTTPServer):
         """The store's items, read again only once its version has moved: reading every file
         takes a tenth of a second, and panels fetch the board whenever the version moves."""
         version = store.version()
-        if self._items[0] != version:
-            self._items = (version, list(store.load_all().values()))
-        return self._items[1]
+        with self._reading:
+            if self._items[0] != version:
+                self._items = (version, list(store.load_all().values()))
+            return self._items[1]
 
     def keep_archiving(self) -> None:
         """Take long-finished tasks off the board: now, hourly, and when the setting changes."""

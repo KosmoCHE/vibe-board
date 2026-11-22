@@ -152,6 +152,26 @@ def test_an_old_listing_answers_at_once_while_a_new_one_runs(board_server, monke
     assert board_server.pane_names() == {"A": "new"}
 
 
+def test_panels_asking_together_read_the_items_once(board_server, monkeypatch):
+    monkeypatch.setattr(server.BoardServer, "pane_names", lambda self: {})
+    store.create("x", "/tmp/a")
+    reads = []
+    load_all = store.load_all
+
+    def slow_load_all(*args, **kwargs):
+        reads.append(1)
+        time.sleep(0.2)  # long enough for the other panels to ask as well
+        return load_all(*args, **kwargs)
+
+    monkeypatch.setattr(server.store, "load_all", slow_load_all)
+    panels = [threading.Thread(target=board_server.board) for _ in range(5)]
+    for panel in panels:
+        panel.start()
+    for panel in panels:
+        panel.join()
+    assert len(reads) == 1
+
+
 def test_items_are_read_again_only_once_the_store_changes(board_server, monkeypatch):
     monkeypatch.setattr(server.BoardServer, "pane_names", lambda self: {})
     item = store.create("x", "/tmp/a")

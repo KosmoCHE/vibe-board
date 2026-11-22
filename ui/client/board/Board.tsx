@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { BoardData, Host, Item, Tab } from "./host";
+import type { Host, Item, Tab } from "./host";
 import { Inspector } from "./Inspector";
 import { lasting, List, reveal, StuckHeading } from "./List";
 import type { Stuck } from "./List";
+import { answeredAt, current, poll, replaceItem, subscribe } from "./feed";
 import { dueDay, model, projectPath } from "./model";
 import type { Model } from "./model";
 import { BoardContext, closesOnLeave, controlStyle, Icon, Link, onRightClick, Select, StatusIcon, T, Tint, useBoard } from "./parts";
@@ -23,7 +24,9 @@ type Undo = { id: string; title: string } & ({ fields: Partial<Item> } | { resto
 type MenuAt = { item: Item; x: number; y: number; width: number; height: number };
 
 export function Board({ host }: { host: Host }) {
-  const [board, setBoard] = useState<BoardData | null>(null);
+  const [feed, setFeed] = useState(current);
+  useEffect(() => subscribe(host.request, setFeed), []);
+  const { board, down } = feed;
   const [ui, setUi] = useState<Ui>(() => ({
     ...host.prefs,
     showDone: {},
@@ -35,8 +38,8 @@ export function Board({ host }: { host: Host }) {
     addParent: null,
     needsDue: null,
   }));
-  const [down, setDown] = useState(false); // the server is unreachable; what is shown is stale
-  const [message, setMessage] = useState({ text: "", error: false });
+  const [own, setMessage] = useState({ text: "", error: false });
+  const message = down ? { text: feed.error, error: true } : own; // while the server is away, why
   const [undos, setUndos] = useState<Undo[]>([]);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const root = useRef<View>(null);
@@ -48,14 +51,6 @@ export function Board({ host }: { host: Host }) {
   const seen = useRef(0);
   const scrollTo = useRef<string | null>(null);
   const stuck = useRef<Stuck>({ heads: [], y: 0, redraw: null });
-  const sync = useRef({
-    host,
-    polling: false,
-    again: false, // a change landed while a poll was under way
-    version: null as string | null, // of the board that is shown; null: fetch it whatever the server says
-    at: null as Date | null,
-  });
-  sync.current.host = host;
 
   const notice = (text: string) => setMessage({ text, error: false });
   const showError = (e: unknown) => {
@@ -64,44 +59,8 @@ export function Board({ host }: { host: Host }) {
     setMessage((now) => (now.error && now.text === text ? now : { text, error: true }));
   };
 
-  // `changed`: something was just written, so a poll already under way may have missed it.
-  async function poll(changed = false) {
-    const s = sync.current;
-    if (s.polling) {
-      s.again = s.again || changed;
-      return;
-    }
-    s.polling = true;
-    try {
-      // Nothing shown yet, or what is shown is not trusted: fetch the board straight away, as it
-      // carries its own version. Otherwise ask the version first, which is cheap.
-      const latest = s.version === null ? null : ((await s.host.request("GET", "/api/version")) as { version: string });
-      if (!latest || latest.version !== s.version) {
-        const fresh = (await s.host.request("GET", "/api/board")) as BoardData;
-        setBoard(fresh);
-        s.version = fresh.version;
-        setMessage((now) => (now.error ? { text: "", error: false } : now));
-      }
-      s.at = new Date();
-      setDown(false);
-    } catch (e) {
-      s.version = null;
-      setDown(true);
-      showError(e);
-    } finally {
-      s.polling = false;
-      if (s.again) {
-        s.again = false;
-        poll();
-      }
-    }
-  }
-
-  useEffect(() => {
-    poll();
-    const timer = setInterval(() => poll(), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // A fresh board settles what went wrong before it.
+  useEffect(() => setMessage((now) => (now.error ? { text: "", error: false } : now)), [board]);
 
   const m = useMemo(() => board && model(board, host), [board, host.beside, host.project]);
   const filters = useMemo(() => (m ? filterOptions(m) : []), [m]);
@@ -137,7 +96,7 @@ export function Board({ host }: { host: Host }) {
     return write("PATCH", "/api/items/" + id, fields, (reply) => {
       const item = reply as Item;
       // Show it at once; the refresh that follows brings whatever else the change touched.
-      setBoard((now) => now && { ...now, items: now.items.map((i) => (i.id === id ? item : i)) });
+      replaceItem(item);
       if (undoable && before) {
         const previous: Record<string, unknown> = {};
         for (const key of Object.keys(fields) as (keyof Item)[]) previous[key] = before[key];
@@ -282,7 +241,7 @@ export function Board({ host }: { host: Host }) {
           <View accessibilityRole="alert" style={{ padding: 9, backgroundColor: c.statusWarning }}>
             <T weight="600" color={c.surface0}>
               {"看板连接已断开，正在重连。当前显示的是旧数据" +
-                (sync.current.at ? `（最后同步 ${sync.current.at.toLocaleTimeString()}）` : "") +
+                (answeredAt() ? `（最后同步 ${answeredAt()!.toLocaleTimeString()}）` : "") +
                 "。"}
             </T>
           </View>
